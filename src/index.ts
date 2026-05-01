@@ -254,6 +254,19 @@ app.get("/", requireKey, (req, res) => {
       }
     });
 
+    // Housing Intel mini card
+    document.querySelectorAll('.mini').forEach(function(mini) {
+      var lbl = (mini.querySelector('.mini-lbl')||{}).textContent||'';
+      var val = mini.querySelector('.mini-val');
+      if (!val) return;
+      lbl = lbl.trim();
+      if (lbl === 'Active Listings') {
+        val.textContent = Number(d.activeHousingListings||0).toLocaleString();
+      } else if (lbl === 'Avg. Price / Night') {
+        val.textContent = '$' + Number(d.avgPricePerNight||0).toLocaleString();
+      }
+    });
+
     // Signup bars
     var bars    = document.querySelectorAll('.bar-col');
     var signups = d.signupsByDay || [];
@@ -420,7 +433,8 @@ app.get("/", requireKey, (req, res) => {
 })();
 </script>`;
 
-  html = html.replace("</body>", liveScript + "\n</body>");
+  // Use a function to avoid $' and $& special replacement patterns in liveScript
+  html = html.replace("</body>", () => liveScript + "\n</body>");
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.setHeader("Cache-Control", "no-store");
   res.send(html);
