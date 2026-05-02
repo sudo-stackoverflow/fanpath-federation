@@ -78,8 +78,9 @@ router.get("/", requireKey, (req, res) => {
       sidebarItems.forEach(function(s) { s.classList.remove('active'); });
       item.classList.add('active');
 
-      // Strip ALL non-ASCII (emoji, variation selectors like U+FE0F, etc.)
-      var label = item.textContent.replace(/[^\x00-\x7E]/g,'').replace(/\s+/g,' ').trim();
+      // Strip everything outside printable ASCII (space-tilde = 32-126)
+      // Using /[^ -~]/g avoids hex escapes that get mangled in the template literal
+      var label = item.textContent.replace(/[^ -~]/g,'').replace(/\s+/g,' ').trim();
       // strip badge numbers ("3 new", "7")
       label = label.replace(/\d+\s*new|\d+/gi,'').trim();
 
