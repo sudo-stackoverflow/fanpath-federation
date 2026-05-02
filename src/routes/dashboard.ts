@@ -299,8 +299,102 @@ router.get("/", requireKey, (req, res) => {
       }
     }
 
-    // GA4 block
+    // GA4 custom events block
     var ga = d.ga4;
+    if (ga && ga.available && ga.customEvents) {
+      var ce = ga.customEvents;
+      if (!document.getElementById('fp-ga4-events-section')) {
+        var evBlock = document.createElement('div');
+        evBlock.id = 'fp-ga4-events-section';
+
+        function evRow(label, val) {
+          return '<div class="mini"><span class="mini-lbl">' + label + '</span>'
+            + '<span class="mini-val">' + Number(val||0).toLocaleString() + '</span></div>';
+        }
+        function evCard(title, rows) {
+          return '<div class="card"><div class="card-head"><span class="card-title">' + title + '</span>'
+            + '<span style="font-size:10px;color:var(--faint);">28 days</span></div>'
+            + rows.join('') + '</div>';
+        }
+
+        evBlock.innerHTML =
+          '<div class="section-hdr">APP EVENT ANALYTICS · 28-DAY</div>' +
+          '<div class="g3" style="margin-bottom:14px;">' +
+            evCard('Identity & Onboarding', [
+              evRow('Sign-ups', ce.signed_up),
+              evRow('Logins', ce.logged_in),
+              evRow('Profile Completed', ce.profile_completed),
+              evRow('Joined Nation', ce.joined_nation),
+              evRow('Switched Nation', ce.switched_nation),
+            ]) +
+            evCard('Events & Meetups', [
+              evRow('Event List Viewed', ce.event_list_viewed),
+              evRow('Event Opened', ce.event_opened),
+              evRow('RSVP\'d', ce.event_rsvp),
+              evRow('Event Created', ce.event_created),
+            ]) +
+            evCard('Housing', [
+              evRow('List Viewed', ce.housing_list_viewed),
+              evRow('Listing Opened', ce.housing_opened),
+              evRow('Post Created', ce.housing_post_created),
+              evRow('Contact Clicked', ce.housing_contact_clicked),
+              evRow('Saved', ce.housing_saved),
+            ]) +
+          '</div>' +
+          '<div class="g3" style="margin-bottom:14px;">' +
+            evCard('Tickets', [
+              evRow('Board Viewed', ce.ticket_board_viewed),
+              evRow('Ticket Opened', ce.ticket_opened),
+              evRow('Post Created', ce.ticket_post_created),
+              evRow('Contact Clicked', ce.ticket_contact_clicked),
+            ]) +
+            evCard('My Path & Monetization', [
+              evRow('My Path Started', ce.my_path_started),
+              evRow('Path Generated', ce.my_path_generated),
+              evRow('Path Saved', ce.my_path_saved),
+              evRow('Paywall Viewed', ce.paywall_viewed),
+              evRow('Purchase Started', ce.purchase_started),
+              evRow('Purchase Completed', ce.purchase_completed),
+            ]) +
+            evCard('Social & Squads', [
+              evRow('Chat Opened', ce.chat_opened),
+              evRow('Message Sent', ce.message_sent),
+              evRow('DM Started', ce.dm_started),
+              evRow('Friend Added', ce.friend_added),
+              evRow('Profile Viewed', ce.profile_viewed),
+              evRow('Squad Created', ce.squad_created),
+              evRow('Invite Accepted', ce.squad_invite_accepted),
+              evRow('Squad Confirmed', ce.squad_confirmed),
+            ]) +
+          '</div>' +
+          '<div class="g3" style="margin-bottom:14px;">' +
+            evCard('Simulator & Brackets', [
+              evRow('Simulator Opened', ce.simulator_opened),
+              evRow('Bracket Started', ce.bracket_started),
+              evRow('Bracket Saved', ce.bracket_saved),
+            ]) +
+            evCard('Intel & Community Feed', [
+              evRow('Intel Feed Viewed', ce.intel_feed_viewed),
+              evRow('Intel Post Opened', ce.intel_post_opened),
+              evRow('Post Reacted', ce.post_reacted),
+              evRow('Post Commented', ce.post_commented),
+              evRow('Post Reposted', ce.post_reposted),
+            ]) +
+          '</div>';
+
+        // Insert before the sentiment section
+        var sentimentHdrEv = Array.from(document.querySelectorAll('.section-hdr'))
+          .find(function(el) { return el.textContent.includes('SENTIMENT'); });
+        if (sentimentHdrEv) {
+          sentimentHdrEv.parentNode.insertBefore(evBlock, sentimentHdrEv);
+        } else {
+          var footer = document.querySelector('footer');
+          if (footer) footer.parentNode.insertBefore(evBlock, footer);
+        }
+      }
+    }
+
+    // GA4 block
     if (ga && ga.available) {
       // Engagement ring
       var ringVal = document.querySelector('.ring-val');
