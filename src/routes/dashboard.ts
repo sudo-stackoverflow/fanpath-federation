@@ -151,12 +151,13 @@ router.get("/", requireKey, (req, res) => {
       var dd = document.createElement('div');
       dd.id = 'fp-nation-dd';
       dd.style.cssText = 'position:fixed;background:#fff;border:1px solid #e5e5e5;border-radius:10px;padding:6px 0;min-width:200px;box-shadow:0 8px 24px rgba(0,0,0,0.12);z-index:9999;font-size:13px;font-family:DM Sans,sans-serif;';
-      var nations = _lastData && _lastData.topNations ? _lastData.topNations.slice(0,10) : [];
+      var rawNations = _lastData && _lastData.topNations ? _lastData.topNations : [];
+      var nations = mergeNations(rawNations).slice(0,10);
       var header = '<div style="padding:6px 14px 8px;color:#aaa;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;border-bottom:1px solid #f0f0f0;margin-bottom:4px;">TOP NATIONS</div>';
       var rows = nations.length
         ? nations.map(function(n) {
             return '<div style="padding:7px 14px;cursor:default;display:flex;justify-content:space-between;align-items:center;">'
-              + '<span style="font-weight:500;">' + n.nation + '</span>'
+              + '<span style="font-weight:500;">' + fmtNation(n.nation) + '</span>'
               + '<span style="font-size:11px;color:#888;font-family:monospace;">' + Number(n.count).toLocaleString() + ' fans</span></div>';
           }).join('')
         : '<div style="padding:10px 14px;color:#aaa;">Loading…</div>';
@@ -244,40 +245,79 @@ router.get("/", requireKey, (req, res) => {
     a.click();
   }
 
+  // ── Helpers ───────────────────────────────────────────────────────────────────
+  function titleCase(str) {
+    return str.replace(/-/g,' ').replace(/\b\w/g, function(c){return c.toUpperCase();});
+  }
+  function fmtNation(code) {
+    return code.toUpperCase();
+  }
+  // Deduplicate topNations by normalising case, merge counts
+  function mergeNations(nations) {
+    var map = {};
+    (nations||[]).forEach(function(n) {
+      var key = n.nation.toLowerCase();
+      map[key] = (map[key]||0) + n.count;
+    });
+    return Object.keys(map).map(function(k){return{nation:k,count:map[k]};})
+      .sort(function(a,b){return b.count-a.count;});
+  }
+
   // ── Render data ──────────────────────────────────────────────────────────────
   function render(d) {
     _lastData = d;
 
-    // KPIs
+    var mergedNations = mergeNations(d.topNations);
+
+    // KPIs — map all 5 slots to real data (repurpose Avg Spend→Events, Sponsor→MyPath)
     document.querySelectorAll('.kpi').forEach(function(kpi) {
-      var lbl  = (kpi.querySelector('.kpi-lbl')||{}).textContent||'';
-      var val  = kpi.querySelector('.kpi-val');
-      var delt = kpi.querySelector('.kpi-delta');
-      if (!val) return;
-      lbl = lbl.trim();
+      var lblEl = kpi.querySelector('.kpi-lbl');
+      var val   = kpi.querySelector('.kpi-val');
+      var delt  = kpi.querySelector('.kpi-delta');
+      if (!val || !lblEl) return;
+      var lbl = lblEl.textContent.trim();
+
       if (lbl === 'Verified Fans') {
-        val.textContent = Number(d.totalUsers||0).toLocaleString();
-        if (delt) delt.textContent = '↑ Live from Fanpath';
+        val.textContent  = Number(d.totalUsers||0).toLocaleString();
+        if (delt) delt.textContent = 'Live from Fanpath DB';
       } else if (lbl === 'Premium Members') {
-        val.textContent = Number(d.premiumUsers||0).toLocaleString();
-        if (delt) delt.textContent = '↑ ' + (d.premiumConversionRate||0) + '% conv. rate';
+        val.textContent  = Number(d.premiumUsers||0).toLocaleString();
+        if (delt) delt.textContent = (d.premiumConversionRate||0) + '% conv. rate';
       } else if (lbl === 'Housing Matches') {
-        val.textContent = Number(d.activeHousingListings||0).toLocaleString();
+        val.textContent  = Number(d.activeHousingListings||0).toLocaleString();
         if (delt) delt.textContent = 'Avg $' + (d.avgPricePerNight||0) + '/night';
+      } else if (lbl === 'Avg Spend / Fan') {
+        // Repurpose: show total events
+        lblEl.textContent = 'Total Events';
+        val.textContent   = Number(d.totalEvents||0).toLocaleString();
+        if (delt) delt.textContent = 'Across all host cities';
+      } else if (lbl === 'Sponsor Impressions' || lbl === 'Total Events') {
+        // Repurpose: show MyPath plans generated
+        lblEl.textContent = 'MyPath Plans';
+        val.textContent   = Number(d.totalMyPathPlans||0).toLocaleString();
+        if (delt) delt.textContent = 'AI itineraries generated';
       }
     });
 
-    // Housing Intel mini card
-    document.querySelectorAll('.mini').forEach(function(mini) {
-      var lbl = (mini.querySelector('.mini-lbl')||{}).textContent||'';
-      var val = mini.querySelector('.mini-val');
-      if (!val) return;
-      lbl = lbl.trim();
-      if (lbl === 'Active Listings') {
-        val.textContent = Number(d.activeHousingListings||0).toLocaleString();
-      } else if (lbl === 'Avg. Price / Night') {
-        val.textContent = '$' + Number(d.avgPricePerNight||0).toLocaleString();
-      }
+    // Mini cards — disambiguate Housing vs Ticket sections
+    document.querySelectorAll('.card').forEach(function(card) {
+      var titleEl = card.querySelector('.card-title');
+      if (!titleEl) return;
+      var cardTitle = titleEl.textContent.trim();
+
+      card.querySelectorAll('.mini').forEach(function(mini) {
+        var lbl = (mini.querySelector('.mini-lbl')||{}).textContent||'';
+        var val = mini.querySelector('.mini-val');
+        if (!val) return;
+        lbl = lbl.trim();
+
+        if (cardTitle === 'Housing Intel') {
+          if (lbl === 'Active Listings')   val.textContent = Number(d.activeHousingListings||0).toLocaleString();
+          if (lbl === 'Avg. Price / Night') val.textContent = '$' + Number(d.avgPricePerNight||0).toLocaleString();
+        } else if (cardTitle === 'Ticket Matching') {
+          if (lbl === 'Active Listings')   val.textContent = Number(d.totalTicketListings||0).toLocaleString();
+        }
+      });
     });
 
     // Signup bars
@@ -295,7 +335,7 @@ router.get("/", requireKey, (req, res) => {
       col.title = day.date + ': ' + day.count + ' signups';
     });
 
-    // City rows
+    // City rows — title-case + hyphen removal
     if (d.topCities && d.topCities.length) {
       var cityRows   = document.querySelectorAll('.city-row');
       var totalFans  = d.topCities.reduce(function(s,c){return s+c.count;}, 0) || 1;
@@ -307,28 +347,28 @@ router.get("/", requireKey, (req, res) => {
         var cnt   = row.querySelector('.city-cnt');
         var pctEl = row.querySelector('.city-pct');
         var fill  = row.querySelector('.bar-fill');
-        if (nm)    nm.textContent    = city.city;
+        if (nm)    nm.textContent    = titleCase(city.city);
         if (cnt)   cnt.textContent   = city.count.toLocaleString();
         if (pctEl) pctEl.textContent = pct + '%';
         if (fill)  fill.style.width  = Math.max(4, pct) + '%';
       });
     }
 
-    // Top nations pills
-    if (d.topNations && d.topNations.length) {
+    // Top nations — deduplicated, uppercased
+    if (mergedNations.length) {
       var nationCard = Array.from(document.querySelectorAll('.card-title'))
         .find(function(el) { return el.textContent.includes('Top Nations'); });
       if (nationCard) {
         var card = nationCard.closest('.card');
         var existing = card.querySelectorAll('.nation-row-live');
         existing.forEach(function(el) { el.remove(); });
-        var total = d.topNations.reduce(function(s,n){return s+n.count;}, 0) || 1;
-        d.topNations.slice(0,8).forEach(function(n) {
+        var total = mergedNations.reduce(function(s,n){return s+n.count;}, 0) || 1;
+        mergedNations.slice(0,8).forEach(function(n) {
           var pct = Math.round((n.count / total) * 100);
           var row = document.createElement('div');
           row.className = 'nation-row-live';
           row.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:6px;font-size:12px;';
-          row.innerHTML = '<span style="width:80px;font-weight:600;">' + n.nation + '</span>'
+          row.innerHTML = '<span style="width:80px;font-weight:600;">' + fmtNation(n.nation) + '</span>'
             + '<div style="flex:1;height:4px;background:rgba(0,0,0,0.07);border-radius:2px;">'
             + '<div style="width:' + pct + '%;height:100%;background:var(--green);border-radius:2px;"></div></div>'
             + '<span style="font-family:monospace;font-size:11px;color:var(--faint);">' + n.count.toLocaleString() + '</span>';
