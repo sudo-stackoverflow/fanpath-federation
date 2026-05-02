@@ -11,7 +11,10 @@ import { BetaAnalyticsDataClient } from "@google-analytics/data";
 
 const PROPERTY_ID  = process.env.GA4_PROPERTY_ID  ?? "";
 const CLIENT_EMAIL = process.env.GA4_CLIENT_EMAIL  ?? "";
-const PRIVATE_KEY  = (process.env.GA4_PRIVATE_KEY  ?? "").replace(/\\n/g, "\n");
+// Handle both literal \n (from Railway env var) and real newlines
+const PRIVATE_KEY  = (process.env.GA4_PRIVATE_KEY  ?? "")
+  .replace(/\\n/g, "\n")   // literal \n → real newline
+  .trim();                  // remove any trailing whitespace/newlines
 
 let _client: BetaAnalyticsDataClient | null = null;
 function getClient(): BetaAnalyticsDataClient | null {
