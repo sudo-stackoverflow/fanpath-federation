@@ -367,7 +367,7 @@ router.get("/", requireKey, (req, res) => {
             evCard('Events & Meetups', [
               evRow('Event List Viewed', ce.event_list_viewed),
               evRow('Event Opened', ce.event_opened),
-              evRow('RSVP\'d', ce.event_rsvp),
+              evRow("RSVP'd", ce.event_rsvp),
               evRow('Event Created', ce.event_created),
             ]) +
             evCard('Housing', [
