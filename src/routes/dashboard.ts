@@ -78,8 +78,9 @@ router.get("/", requireKey, (req, res) => {
       sidebarItems.forEach(function(s) { s.classList.remove('active'); });
       item.classList.add('active');
 
-      var label = item.textContent.replace(/[\u{1F000}-\u{1FFFF}]|[\uD800-\uDBFF][\uDC00-\uDFFF]/gu,'').trim();
-      // strip badge text
+      // Strip ALL non-ASCII (emoji, variation selectors like U+FE0F, etc.)
+      var label = item.textContent.replace(/[^\x00-\x7E]/g,'').replace(/\s+/g,' ').trim();
+      // strip badge numbers ("3 new", "7")
       label = label.replace(/\d+\s*new|\d+/gi,'').trim();
 
       var entry = SIDEBAR_MAP.find(function(e) { return label.startsWith(e[0]) || e[0].startsWith(label.split(' ')[0]); });
@@ -135,6 +136,42 @@ router.get("/", requireKey, (req, res) => {
   var crmBtn = document.querySelector('.crm-btn');
   if (crmBtn) {
     crmBtn.addEventListener('click', exportCRMCSV);
+  }
+
+  // ── Nation selector dropdown ─────────────────────────────────────────────────
+  var fedSel = document.querySelector('.fed-selector');
+  if (fedSel) {
+    fedSel.style.cursor = 'pointer';
+    fedSel.style.userSelect = 'none';
+    fedSel.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var existing = document.getElementById('fp-nation-dd');
+      if (existing) { existing.remove(); return; }
+      var dd = document.createElement('div');
+      dd.id = 'fp-nation-dd';
+      dd.style.cssText = 'position:fixed;background:#fff;border:1px solid #e5e5e5;border-radius:10px;padding:6px 0;min-width:200px;box-shadow:0 8px 24px rgba(0,0,0,0.12);z-index:9999;font-size:13px;font-family:DM Sans,sans-serif;';
+      var nations = _lastData && _lastData.topNations ? _lastData.topNations.slice(0,10) : [];
+      var header = '<div style="padding:6px 14px 8px;color:#aaa;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;border-bottom:1px solid #f0f0f0;margin-bottom:4px;">TOP NATIONS</div>';
+      var rows = nations.length
+        ? nations.map(function(n) {
+            return '<div style="padding:7px 14px;cursor:default;display:flex;justify-content:space-between;align-items:center;">'
+              + '<span style="font-weight:500;">' + n.nation + '</span>'
+              + '<span style="font-size:11px;color:#888;font-family:monospace;">' + Number(n.count).toLocaleString() + ' fans</span></div>';
+          }).join('')
+        : '<div style="padding:10px 14px;color:#aaa;">Loading…</div>';
+      var footer = '<div style="padding:8px 14px;border-top:1px solid #f0f0f0;margin-top:4px;font-size:11px;color:#aaa;text-align:center;">Global dashboard · all nations</div>';
+      dd.innerHTML = header + rows + footer;
+      var rect = fedSel.getBoundingClientRect();
+      dd.style.top = (rect.bottom + 6) + 'px';
+      dd.style.right = (window.innerWidth - rect.right) + 'px';
+      document.body.appendChild(dd);
+      setTimeout(function() {
+        document.addEventListener('click', function hdl() {
+          dd.remove();
+          document.removeEventListener('click', hdl);
+        });
+      }, 0);
+    });
   }
 
   // ── Toast helper ────────────────────────────────────────────────────────────
