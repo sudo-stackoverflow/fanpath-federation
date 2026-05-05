@@ -511,9 +511,10 @@
     .bars {
       display: flex;
       align-items: flex-end;
-      gap: 5px;
-      height: 140px;
-      padding-top: 6px;
+      gap: 4px;
+      height: 188px;
+      overflow: visible;
+      padding-top: 24px; /* room for peak label */
     }
 
     .bar-col {
@@ -524,44 +525,75 @@
       gap: 4px;
       height: 100%;
       justify-content: flex-end;
+      position: relative;
     }
 
     .bar-g {
-      width: 100%;
-      border-radius: 3px 3px 0 0;
+      width: 78%;
+      border-radius: 4px 4px 0 0;
       background: var(--green);
-      opacity: 0.75;
-      transition: opacity 0.2s;
+      opacity: 0.78;
+      transition: height 0.3s ease, opacity 0.15s;
       min-height: 3px;
+      position: relative;
+      cursor: default;
     }
 
     .bar-g:hover {
       opacity: 1;
     }
 
-    .bar-b {
-      width: 100%;
-      border-radius: 3px 3px 0 0;
-      background: var(--blue);
-      opacity: 0.5;
-      transition: opacity 0.2s;
-      min-height: 2px;
+    /* Hover tooltip */
+    .bar-g[data-count]::after {
+      content: attr(data-count);
+      position: absolute;
+      bottom: calc(100% + 7px);
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 11px;
+      font-weight: 700;
+      color: #111;
+      background: #fff;
+      border: 1px solid rgba(0,0,0,0.1);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      padding: 4px 9px;
+      border-radius: 7px;
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.12s;
+      z-index: 20;
     }
 
-    .bar-b:hover {
-      opacity: 0.75;
+    .bar-g[data-count]:hover::after {
+      opacity: 1;
+    }
+
+    /* Always-visible peak label */
+    .bar-peak-label {
+      position: absolute;
+      top: -18px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--green);
+      white-space: nowrap;
+      letter-spacing: 0;
     }
 
     .bar-lbl {
       font-size: 9px;
       color: var(--faint);
       font-family: 'JetBrains Mono', monospace;
+      flex-shrink: 0;
     }
 
     .chart-legend {
       display: flex;
       gap: 14px;
       margin-top: 10px;
+      align-items: center;
     }
 
     .leg-item {
@@ -576,6 +608,26 @@
       width: 7px;
       height: 7px;
       border-radius: 2px;
+    }
+
+    /* Window selector tabs */
+    .chart-tab {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 10px;
+      cursor: pointer;
+      color: var(--faint);
+      letter-spacing: .5px;
+      transition: background 0.15s, color 0.15s;
+      user-select: none;
+    }
+
+    .chart-tab:hover { color: var(--fg); }
+
+    .chart-tab-active {
+      background: var(--green-dim);
+      color: var(--green) !important;
     }
 
     /* ── CITY BAR ROWS ────────────────────────────────────────── */
@@ -1701,73 +1753,26 @@
 
           <!-- Signups chart -->
           <div class="card">
-            <div class="card-head"><span class="card-title">Daily Fan Signups</span><span class="card-act">Export
-                &#x2192;</span></div>
-            <div class="bars">
-              <div class="bar-col">
-                <div class="bar-g" style="height:4%"></div>
-                <div class="bar-b" style="height:0%"></div><span class="bar-lbl">M</span>
-              </div>
-              <div class="bar-col">
-                <div class="bar-g" style="height:4%"></div>
-                <div class="bar-b" style="height:0%"></div><span class="bar-lbl">T</span>
-              </div>
-              <div class="bar-col">
-                <div class="bar-g" style="height:4%"></div>
-                <div class="bar-b" style="height:0%"></div><span class="bar-lbl">W</span>
-              </div>
-              <div class="bar-col">
-                <div class="bar-g" style="height:4%"></div>
-                <div class="bar-b" style="height:0%"></div><span class="bar-lbl">T</span>
-              </div>
-              <div class="bar-col">
-                <div class="bar-g" style="height:4%"></div>
-                <div class="bar-b" style="height:0%"></div><span class="bar-lbl">F</span>
-              </div>
-              <div class="bar-col">
-                <div class="bar-g" style="height:4%"></div>
-                <div class="bar-b" style="height:0%"></div><span class="bar-lbl">S</span>
-              </div>
-              <div class="bar-col">
-                <div class="bar-g" style="height:4%"></div>
-                <div class="bar-b" style="height:0%"></div><span class="bar-lbl">S</span>
-              </div>
-              <div class="bar-col">
-                <div class="bar-g" style="height:4%"></div>
-                <div class="bar-b" style="height:0%"></div><span class="bar-lbl">M</span>
-              </div>
-              <div class="bar-col">
-                <div class="bar-g" style="height:4%"></div>
-                <div class="bar-b" style="height:0%"></div><span class="bar-lbl">T</span>
-              </div>
-              <div class="bar-col">
-                <div class="bar-g" style="height:4%"></div>
-                <div class="bar-b" style="height:0%"></div><span class="bar-lbl">W</span>
-              </div>
-              <div class="bar-col">
-                <div class="bar-g" style="height:4%"></div>
-                <div class="bar-b" style="height:0%"></div><span class="bar-lbl">T</span>
-              </div>
-              <div class="bar-col">
-                <div class="bar-g" style="height:4%"></div>
-                <div class="bar-b" style="height:0%"></div><span class="bar-lbl">F</span>
-              </div>
-              <div class="bar-col">
-                <div class="bar-g" style="height:4%"></div>
-                <div class="bar-b" style="height:0%"></div><span class="bar-lbl">S</span>
-              </div>
-              <div class="bar-col">
-                <div class="bar-g" style="height:4%"></div>
-                <div class="bar-b" style="height:0%"></div><span class="bar-lbl">S</span>
+            <div class="card-head">
+              <span class="card-title">Daily Fan Signups</span>
+              <div style="display:flex;align-items:center;gap:6px;">
+                <span class="chart-tab" data-win="7d">7d</span>
+                <span class="chart-tab" data-win="30d">30d</span>
+                <span class="card-act">Export &#x2192;</span>
               </div>
             </div>
+            <div class="bars">
+              <div class="bar-col"><div class="bar-g" style="height:4%"></div><span class="bar-lbl">M</span></div>
+              <div class="bar-col"><div class="bar-g" style="height:4%"></div><span class="bar-lbl">T</span></div>
+              <div class="bar-col"><div class="bar-g" style="height:4%"></div><span class="bar-lbl">W</span></div>
+              <div class="bar-col"><div class="bar-g" style="height:4%"></div><span class="bar-lbl">T</span></div>
+              <div class="bar-col"><div class="bar-g" style="height:4%"></div><span class="bar-lbl">F</span></div>
+              <div class="bar-col"><div class="bar-g" style="height:4%"></div><span class="bar-lbl">S</span></div>
+              <div class="bar-col"><div class="bar-g" style="height:4%"></div><span class="bar-lbl">S</span></div>
+            </div>
             <div class="chart-legend">
-              <div class="leg-item">
-                <div class="leg-dot" style="background:var(--green)"></div>Free
-              </div>
-              <div class="leg-item">
-                <div class="leg-dot" style="background:var(--blue)"></div>Premium
-              </div>
+              <div class="leg-item"><div class="leg-dot" style="background:var(--green)"></div>New Signups</div>
+              <span style="font-size:10px;color:var(--faint);margin-left:auto;" id="fp-chart-window-lbl">Last 7 days</span>
             </div>
           </div>
 

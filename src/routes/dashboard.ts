@@ -487,27 +487,55 @@ router.get("/", requireKey, (req, res) => {
       });
     });
 
-    // Signup bars + growth badge — zero ALL bars first so no stale static HTML shows
-    var bars    = document.querySelectorAll('.bar-col');
-    bars.forEach(function(col) {
-      var barG = col.querySelector('.bar-g');
-      var barB = col.querySelector('.bar-b');
-      if (barG) barG.style.height = '4%';
-      if (barB) barB.style.height = '0%';
-    });
+    // ── Signup chart — dynamic bar rebuild ──────────────────────────────────────
+    var signupCardTitle = Array.from(document.querySelectorAll('.card-title'))
+      .find(function(el) { return el.textContent.includes('Daily Fan Signups'); });
     var signups = d.signupsByDay || [];
-    var maxSig  = Math.max.apply(null, signups.map(function(s){return s.count;})) || 1;
-    var offset  = bars.length - signups.length;
-    signups.forEach(function(day, i) {
-      var col = bars[offset + i];
-      if (!col) return;
-      var barG = col.querySelector('.bar-g');
-      var lbl  = col.querySelector('.bar-lbl');
-      if (barG) barG.style.height = Math.max(4, Math.round((day.count / maxSig) * 100)) + '%';
-      if (lbl)  lbl.textContent   = day.label || day.date.slice(8);
-      col.title = day.date + ': ' + day.count + ' signups';
-    });
-    // Signup card: show growth badge + 7d total
+    if (signupCardTitle && signups.length) {
+      var sigCard = signupCardTitle.closest('.card');
+      var barsEl  = sigCard ? sigCard.querySelector('.bars') : null;
+      if (barsEl) {
+        // Fully rebuild — clears placeholder columns and stale data
+        Array.from(barsEl.querySelectorAll('.bar-col')).forEach(function(el) { el.remove(); });
+        var maxSig = Math.max.apply(null, signups.map(function(s){return s.count;})) || 1;
+        var peakSigIdx = signups.reduce(function(best, s, i) {
+          return s.count > signups[best].count ? i : best;
+        }, 0);
+        signups.forEach(function(day, i) {
+          var pct = Math.max(3, Math.round((day.count / maxSig) * 88));
+          var col = document.createElement('div');
+          col.className = 'bar-col';
+          var barDiv = document.createElement('div');
+          barDiv.className = 'bar-g';
+          barDiv.style.height = pct + '%';
+          barDiv.setAttribute('data-count', day.count + ' signups');
+          barDiv.title = day.date + ': ' + day.count + ' signups';
+          if (i === peakSigIdx && day.count > 0) {
+            var pk = document.createElement('div');
+            pk.className = 'bar-peak-label';
+            pk.textContent = String(day.count);
+            barDiv.appendChild(pk);
+          }
+          var lbl = document.createElement('span');
+          lbl.className = 'bar-lbl';
+          lbl.textContent = day.label || day.date.slice(8);
+          col.appendChild(barDiv);
+          col.appendChild(lbl);
+          barsEl.appendChild(col);
+        });
+      }
+      // Window tab active state
+      var currentWin = (window.location.search.indexOf('window=30d') !== -1) ? '30d'
+        : (window.location.search.indexOf('window=all') !== -1) ? 'all' : '7d';
+      var winLblEl = document.getElementById('fp-chart-window-lbl');
+      if (winLblEl) winLblEl.textContent = currentWin === '30d' ? 'Last 30 days' : currentWin === 'all' ? 'All time' : 'Last 7 days';
+      sigCard && sigCard.querySelectorAll('.chart-tab').forEach(function(tab) {
+        var isActive = tab.getAttribute('data-win') === currentWin;
+        tab.classList.toggle('chart-tab-active', isActive);
+      });
+    }
+
+    // Signup card: growth badge
     var signupCard = Array.from(document.querySelectorAll('.card-title'))
       .find(function(el) { return el.textContent.includes('Daily Fan Signups'); });
     if (signupCard) {
@@ -526,6 +554,19 @@ router.get("/", requireKey, (req, res) => {
         growthBadge.style.background = up ? 'var(--green-dim)' : 'var(--red-dim)';
         growthBadge.style.color = up ? 'var(--green)' : 'var(--red)';
       }
+    }
+
+    // Window tab click handler (runs once — guard with dataset)
+    var winTabsInited = document.body.dataset.fpWinTabs;
+    if (!winTabsInited) {
+      document.body.dataset.fpWinTabs = '1';
+      document.querySelectorAll('.chart-tab[data-win]').forEach(function(tab) {
+        tab.addEventListener('click', function() {
+          var win = tab.getAttribute('data-win');
+          var url = window.location.pathname + '?window=' + win;
+          window.location.href = url;
+        });
+      });
     }
 
     // City rows — scoped to "Fans by Host City" card only (avoids polluting GA4 country rows)
@@ -626,18 +667,28 @@ router.get("/", requireKey, (req, res) => {
           + '</div>';
       }).join('');
 
-      // DAU sparkline (dauLast14d)
+      // DAU bar chart (dauLast14d)
       var dau14 = (d.ga4 && d.ga4.dauLast14d) ? d.ga4.dauLast14d : [];
       var dauMax = Math.max.apply(null, dau14.map(function(x){return x.users;})) || 1;
+      var dauPeakIdx = dau14.length ? dau14.reduce(function(best, x, i) {
+        return x.users > dau14[best].users ? i : best;
+      }, 0) : 0;
+      var DAY_CHARS = ['S','M','T','W','T','F','S'];
       var dauHtml = dau14.length
-        ? '<div style="display:flex;align-items:flex-end;gap:3px;height:48px;margin-top:8px;">'
-          + dau14.map(function(x) {
-              var h = Math.max(4, Math.round((x.users / dauMax) * 100));
-              return '<div title="' + x.date + ': ' + x.users + ' users" style="flex:1;background:var(--green);border-radius:2px 2px 0 0;height:' + h + '%;opacity:0.8;"></div>';
+        ? '<div class="bars" style="height:170px;margin-top:4px;">'
+          + dau14.map(function(x, i) {
+              var h = Math.max(3, Math.round((x.users / dauMax) * 88));
+              var parts = x.date.split('-');
+              var dayLetter = DAY_CHARS[new Date(Number(parts[0]), Number(parts[1])-1, Number(parts[2])).getDay()];
+              var isPeak = i === dauPeakIdx;
+              return '<div class="bar-col">'
+                + '<div class="bar-g" style="height:' + h + '%;" data-count="' + x.users.toLocaleString() + ' users" title="' + x.date + ': ' + x.users + ' users">'
+                + (isPeak ? '<div class="bar-peak-label">' + x.users.toLocaleString() + '</div>' : '')
+                + '</div>'
+                + '<span class="bar-lbl">' + dayLetter + '</span>'
+                + '</div>';
             }).join('')
           + '</div>'
-          + '<div style="display:flex;justify-content:space-between;font-size:9px;color:var(--faint);margin-top:3px;">'
-          + '<span>' + (dau14[0]||{}).date + '</span><span>' + (dau14[dau14.length-1]||{}).date + '</span></div>'
         : '<div style="color:var(--faint);font-size:12px;padding:12px 0;">No GA4 data</div>';
 
       insBlock.innerHTML =
@@ -679,7 +730,10 @@ router.get("/", requireKey, (req, res) => {
           // Card 3: DAU chart
           '<div class="card"><div class="card-head"><span class="card-title">Daily Active Users · 14d</span><span style="font-size:10px;color:var(--faint);">GA4</span></div>' +
           dauHtml +
-          (d.ga4 && d.ga4.available ? '<div class="mini" style="margin-top:10px;"><span class="mini-lbl">Peak DAU</span><span class="mini-val" style="color:var(--green)">' + dauMax + '</span></div>' : '') +
+          (d.ga4 && d.ga4.available
+            ? '<div class="chart-legend"><div class="leg-item"><div class="leg-dot" style="background:var(--green)"></div>Active Users (GA4)</div>'
+              + '<span style="font-size:10px;color:var(--faint);margin-left:auto;">14-day window</span></div>'
+            : '') +
           '</div>' +
 
         '</div>' +
