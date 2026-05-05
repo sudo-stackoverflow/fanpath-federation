@@ -26,9 +26,25 @@ function getClient(): BetaAnalyticsDataClient | null {
   return _client;
 }
 
-// ── 5-min cache ───────────────────────────────────────────────────────────────
-let _cache: { data: GA4Stats; ts: number } | null = null;
+// ── 5-min cache — keyed per window so each filter has its own slot ───────────
+type Window = "24h" | "7d" | "30d" | "all";
+const _cache: Partial<Record<Window, { data: GA4Stats; ts: number }>> = {};
 const CACHE_TTL_MS = 5 * 60 * 1000;
+
+/** Maps window slug → GA4 startDate string */
+function startDate(win: Window): string {
+  if (win === "24h")  return "1daysAgo";
+  if (win === "7d")   return "6daysAgo";
+  if (win === "30d")  return "29daysAgo";
+  return "89daysAgo"; // "all" → 90 days
+}
+/** DAU chart needs one extra day so we can show a full bar for today */
+function dauStartDate(win: Window): string {
+  if (win === "24h")  return "1daysAgo";
+  if (win === "7d")   return "6daysAgo";
+  if (win === "30d")  return "29daysAgo";
+  return "89daysAgo";
+}
 
 export interface CustomEvents {
   // Auth / Identity
@@ -164,21 +180,28 @@ export interface CustomEvents {
 }
 
 export interface GA4Stats {
+  // Primary window (matches the requested window)
+  activeUsers: number;
+  newUsers: number;
+  sessions: number;
+  avgSessionDurationSecs: number;
+  bounceRate: number;
+  engagementRate: number;
+  // Always-fixed reference points
+  activeUsersToday: number;
+  // Kept for backward-compat labels in dashboard
   activeUsers28d: number;
   newUsers28d: number;
   sessions28d: number;
   activeUsers7d: number;
   newUsers7d: number;
   sessions7d: number;
-  activeUsersToday: number;
-  avgSessionDurationSecs: number;
-  bounceRate: number;
-  engagementRate: number;
   topCountries: { country: string; users: number }[];
   topPages: { page: string; views: number }[];
   dauLast14d: { date: string; users: number }[];
   deviceBreakdown: { device: string; sessions: number }[];
   customEvents: CustomEvents;
+  window: string; // "24h" | "7d" | "30d" | "all"
   capturedAt: string;
   available: boolean;
 }
@@ -236,101 +259,99 @@ const EMPTY_EVENTS: CustomEvents = {
   app_install_tapped: 0, push_notification_enabled: 0,
 };
 
-const EMPTY: GA4Stats = {
+const emptyStats = (): GA4Stats => ({
+  activeUsers: 0, newUsers: 0, sessions: 0,
   activeUsers28d: 0, newUsers28d: 0, sessions28d: 0,
   activeUsers7d: 0, newUsers7d: 0, sessions7d: 0,
   activeUsersToday: 0,
   avgSessionDurationSecs: 0, bounceRate: 0, engagementRate: 0,
   topCountries: [], topPages: [], dauLast14d: [], deviceBreakdown: [],
   customEvents: { ...EMPTY_EVENTS },
+  window: "7d",
   capturedAt: new Date().toISOString(),
   available: false,
-};
+});
 
 const n = (v: string | null | undefined) => parseFloat(v ?? "0") || 0;
 
-export async function getGA4Stats(): Promise<GA4Stats> {
-  if (_cache && Date.now() - _cache.ts < CACHE_TTL_MS) return _cache.data;
+export async function getGA4Stats(win: Window = "7d"): Promise<GA4Stats> {
+  const slot = _cache[win];
+  if (slot && Date.now() - slot.ts < CACHE_TTL_MS) return slot.data;
 
   const client = getClient();
-  if (!client) return { ...EMPTY, capturedAt: new Date().toISOString() };
+  if (!client) return { ...emptyStats(), window: win };
 
   try {
     const property = `properties/${PROPERTY_ID}`;
+    const sd = startDate(win);    // dynamic start for the selected window
+    const dauSd = dauStartDate(win);
 
-    const [ov28, ov7, td, countries, pages, dau, devices, events28] = await Promise.all([
-      // Standard metrics — 28d
+    const [ovMain, td, countries, pages, dau, devices, eventsMain] = await Promise.all([
+      // Primary window metrics (matches the filter the user selected)
       client.runReport({
         property,
-        dateRanges: [{ startDate: "28daysAgo", endDate: "today" }],
+        dateRanges: [{ startDate: sd, endDate: "today" }],
         metrics: [
           { name: "activeUsers" }, { name: "newUsers" }, { name: "sessions" },
           { name: "averageSessionDuration" }, { name: "bounceRate" }, { name: "engagementRate" },
         ],
       }),
-      // Standard metrics — 7d
-      client.runReport({
-        property,
-        dateRanges: [{ startDate: "7daysAgo", endDate: "today" }],
-        metrics: [{ name: "activeUsers" }, { name: "newUsers" }, { name: "sessions" }],
-      }),
-      // Today
+      // Today — always fixed reference
       client.runReport({
         property,
         dateRanges: [{ startDate: "today", endDate: "today" }],
         metrics: [{ name: "activeUsers" }],
       }),
-      // Top countries
+      // Top countries — respects window
       client.runReport({
         property,
-        dateRanges: [{ startDate: "28daysAgo", endDate: "today" }],
+        dateRanges: [{ startDate: sd, endDate: "today" }],
         dimensions: [{ name: "country" }],
         metrics: [{ name: "activeUsers" }],
         orderBys: [{ metric: { metricName: "activeUsers" }, desc: true }],
         limit: 10,
       }),
-      // Top pages
+      // Top pages — respects window
       client.runReport({
         property,
-        dateRanges: [{ startDate: "28daysAgo", endDate: "today" }],
+        dateRanges: [{ startDate: sd, endDate: "today" }],
         dimensions: [{ name: "pagePath" }],
         metrics: [{ name: "screenPageViews" }],
         orderBys: [{ metric: { metricName: "screenPageViews" }, desc: true }],
         limit: 5,
       }),
-      // DAU last 30 days (client slices to match the selected window)
+      // DAU per-day — respects window
       client.runReport({
         property,
-        dateRanges: [{ startDate: "29daysAgo", endDate: "today" }],
+        dateRanges: [{ startDate: dauSd, endDate: "today" }],
         dimensions: [{ name: "date" }],
         metrics: [{ name: "activeUsers" }],
         orderBys: [{ dimension: { dimensionName: "date" } }],
       }),
-      // Device breakdown
+      // Device breakdown — respects window
       client.runReport({
         property,
-        dateRanges: [{ startDate: "28daysAgo", endDate: "today" }],
+        dateRanges: [{ startDate: sd, endDate: "today" }],
         dimensions: [{ name: "deviceCategory" }],
         metrics: [{ name: "sessions" }],
         orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
       }),
-      // All custom events — 28d (limit 200 to catch all 84+)
+      // All custom events — respects window (limit 200 to catch all events)
       client.runReport({
         property,
-        dateRanges: [{ startDate: "28daysAgo", endDate: "today" }],
+        dateRanges: [{ startDate: sd, endDate: "today" }],
         dimensions: [{ name: "eventName" }],
         metrics: [{ name: "eventCount" }],
         limit: 200,
       }),
     ]);
 
-    const r28 = ov28[0]?.rows?.[0]?.metricValues ?? [];
-    const r7  = ov7[0]?.rows?.[0]?.metricValues  ?? [];
-    const rTd = td[0]?.rows?.[0]?.metricValues   ?? [];
+    const rMain = ovMain[0]?.rows?.[0]?.metricValues ?? [];
+    const rTd   = td[0]?.rows?.[0]?.metricValues   ?? [];
 
     // Build event count map
     const eventMap: Record<string, number> = {};
-    for (const row of events28[0]?.rows ?? []) {
+    for (const row of eventsMain[0]?.rows ?? []) {
       const name  = row.dimensionValues?.[0]?.value ?? "";
       const count = n(row.metricValues?.[0]?.value);
       if (name) eventMap[name] = count;
@@ -456,16 +477,22 @@ export async function getGA4Stats(): Promise<GA4Stats> {
     };
 
     const stats: GA4Stats = {
-      activeUsers28d: n(r28[0]?.value),
-      newUsers28d:    n(r28[1]?.value),
-      sessions28d:    n(r28[2]?.value),
-      avgSessionDurationSecs: n(r28[3]?.value),
-      bounceRate:     parseFloat((n(r28[4]?.value) * 100).toFixed(1)),
-      engagementRate: parseFloat((n(r28[5]?.value) * 100).toFixed(1)),
-      activeUsers7d:  n(r7[0]?.value),
-      newUsers7d:     n(r7[1]?.value),
-      sessions7d:     n(r7[2]?.value),
+      // Primary window values (reflect the selected filter)
+      activeUsers:    n(rMain[0]?.value),
+      newUsers:       n(rMain[1]?.value),
+      sessions:       n(rMain[2]?.value),
+      avgSessionDurationSecs: n(rMain[3]?.value),
+      bounceRate:     parseFloat((n(rMain[4]?.value) * 100).toFixed(1)),
+      engagementRate: parseFloat((n(rMain[5]?.value) * 100).toFixed(1)),
+      // Backward-compat aliases — point to the same primary values
+      activeUsers28d: n(rMain[0]?.value),
+      newUsers28d:    n(rMain[1]?.value),
+      sessions28d:    n(rMain[2]?.value),
+      activeUsers7d:  n(rMain[0]?.value),
+      newUsers7d:     n(rMain[1]?.value),
+      sessions7d:     n(rMain[2]?.value),
       activeUsersToday: n(rTd[0]?.value),
+      window: win,
       topCountries: (countries[0]?.rows ?? []).map(r => ({
         country: r.dimensionValues?.[0]?.value ?? "",
         users:   n(r.metricValues?.[0]?.value ?? "0"),
@@ -507,10 +534,10 @@ export async function getGA4Stats(): Promise<GA4Stats> {
       available: true,
     };
 
-    _cache = { data: stats, ts: Date.now() };
+    _cache[win] = { data: stats, ts: Date.now() };
     return stats;
   } catch (err) {
     console.error("[GA4] fetch failed:", err);
-    return { ...EMPTY, capturedAt: new Date().toISOString() };
+    return { ...emptyStats(), window: win };
   }
 }

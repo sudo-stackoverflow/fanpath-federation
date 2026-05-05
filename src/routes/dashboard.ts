@@ -346,10 +346,10 @@ router.get("/", requireKey, (req, res) => {
     (d.topNations || []).forEach(function(n) { rows.push([n.nation, n.count]); });
     if (d.ga4 && d.ga4.available) {
       rows.push(['']);
-      rows.push(['GA4 Metric','Value (28d)']);
-      rows.push(['Active Users', d.ga4.activeUsers28d]);
-      rows.push(['New Users', d.ga4.newUsers28d]);
-      rows.push(['Sessions', d.ga4.sessions28d]);
+      rows.push(['GA4 Metric','Value (' + currentWindow + ')']);
+      rows.push(['Active Users', d.ga4.activeUsers]);
+      rows.push(['New Users', d.ga4.newUsers]);
+      rows.push(['Sessions', d.ga4.sessions]);
       rows.push(['Avg Session (s)', d.ga4.avgSessionDurationSecs]);
       rows.push(['Bounce Rate %', d.ga4.bounceRate]);
       rows.push(['Engagement Rate %', d.ga4.engagementRate]);
@@ -766,10 +766,14 @@ router.get("/", requireKey, (req, res) => {
       }
     }
 
-    // ── New data sections (inject once) ─────────────────────────────────────────
-    if (!document.getElementById('fp-live-insights')) {
-      var insBlock = document.createElement('div');
+    // ── New data sections — always refresh on every render ───────────────────────
+    var insBlock = document.getElementById('fp-live-insights');
+    var insIsNew = !insBlock;
+    if (!insBlock) {
+      insBlock = document.createElement('div');
       insBlock.id = 'fp-live-insights';
+    }
+    if (true) { // always refresh innerHTML
 
       // Free vs Premium bar
       var total = d.totalUsers || 1;
@@ -921,26 +925,31 @@ router.get("/", requireKey, (req, res) => {
 
         '</div>';
 
-      // Insert before GA4 events section (or before sentiment)
-      var sentinelEl = document.querySelector('.section-hdr');
+    }
+    if (insIsNew) {
+      // Insert after the KPI summary row
       var afterKpis = document.querySelector('.g3.anim');
       if (afterKpis && afterKpis.nextSibling) {
         afterKpis.parentNode.insertBefore(insBlock, afterKpis.nextSibling);
       } else {
         document.querySelector('footer').parentNode.insertBefore(insBlock, document.querySelector('footer'));
       }
-      // Scroll DAU bars to the right so most recent bar is visible
-      var dauBars = insBlock.querySelector('.bars');
-      if (dauBars) dauBars.scrollLeft = dauBars.scrollWidth;
     }
+    // Scroll DAU bars to the right so most recent bar is visible
+    var dauBars = insBlock.querySelector('.bars');
+    if (dauBars) dauBars.scrollLeft = dauBars.scrollWidth;
 
     // GA4 custom events block
     var ga = d.ga4;
     if (ga && ga.available && ga.customEvents) {
       var ce = ga.customEvents;
-      if (!document.getElementById('fp-ga4-events-section')) {
-        var evBlock = document.createElement('div');
+      var evBlock = document.getElementById('fp-ga4-events-section');
+      var evIsNew = !evBlock;
+      if (!evBlock) {
+        evBlock = document.createElement('div');
         evBlock.id = 'fp-ga4-events-section';
+      }
+      if (true) { // always refresh innerHTML
 
         function evRow(label, val) {
           return '<div class="mini"><span class="mini-lbl">' + label + '</span>'
@@ -948,12 +957,12 @@ router.get("/", requireKey, (req, res) => {
         }
         function evCard(title, rows) {
           return '<div class="card"><div class="card-head"><span class="card-title">' + title + '</span>'
-            + '<span style="font-size:10px;color:var(--faint);">28 days</span></div>'
+            + '<span style="font-size:10px;color:var(--faint);">' + currentWindow + '</span></div>'
             + rows.join('') + '</div>';
         }
 
         evBlock.innerHTML =
-          '<div class="section-hdr">APP EVENT ANALYTICS · 28-DAY</div>' +
+          '<div class="section-hdr">APP EVENT ANALYTICS · ' + currentWindow.toUpperCase() + '</div>' +
 
           // Row 1: Auth · Events · Housing
           '<div class="g3" style="margin-bottom:14px;">' +
@@ -1094,8 +1103,10 @@ router.get("/", requireKey, (req, res) => {
             ]) +
           '</div>';
 
-        // Don't insert yet — store reference, GA4 section below will anchor it
-        _pendingEvBlock = evBlock;
+        // Only pend insertion if this is a newly created block (not yet in DOM)
+        if (evIsNew) {
+          _pendingEvBlock = evBlock;
+        }
       }
     }
 
@@ -1134,31 +1145,38 @@ router.get("/", requireKey, (req, res) => {
         });
       }
 
-      // Inject GA4 section (only once)
-      if (!document.getElementById('fp-ga4-section')) {
+      // Inject GA4 section — always refresh on every render
+      var block = document.getElementById('fp-ga4-section');
+      if (!block) {
         var sentimentHdr = Array.from(document.querySelectorAll('.section-hdr'))
           .find(function(el) { return el.textContent.includes('SENTIMENT'); });
         if (sentimentHdr) {
-          var block = document.createElement('div');
+          block = document.createElement('div');
           block.id = 'fp-ga4-section';
+          sentimentHdr.parentNode.insertBefore(block, sentimentHdr);
+          // Place App Event Analytics immediately after GA4 section
+          if (_pendingEvBlock) {
+            block.parentNode.insertBefore(_pendingEvBlock, block.nextSibling);
+            _pendingEvBlock = null;
+          }
+        }
+      }
+      if (block) {
           var devTotal = ga.deviceBreakdown.reduce(function(s,x){return s+x.sessions;},0)||1;
           var countryMax = (ga.topCountries[0]||{}).users || 1;
           block.innerHTML =
             '<div class="section-hdr">GOOGLE ANALYTICS 4 · LIVE</div>' +
             '<div class="g3" style="margin-bottom:14px;">' +
-              '<div class="card"><div class="card-head"><span class="card-title">28-Day Overview</span>'
+              '<div class="card"><div class="card-head"><span class="card-title">' + currentWindow.toUpperCase() + ' Overview</span>'
               + '<span class="card-act" style="color:var(--green);font-size:10px;">● LIVE</span></div>'
-              + '<div class="mini"><span class="mini-lbl">Active Users</span><span class="mini-val" style="color:var(--green)">' + Number(ga.activeUsers28d).toLocaleString() + '</span></div>'
-              + '<div class="mini"><span class="mini-lbl">New Users</span><span class="mini-val">' + Number(ga.newUsers28d).toLocaleString() + '</span></div>'
-              + '<div class="mini"><span class="mini-lbl">Sessions</span><span class="mini-val">' + Number(ga.sessions28d).toLocaleString() + '</span></div>'
+              + '<div class="mini"><span class="mini-lbl">Active Users</span><span class="mini-val" style="color:var(--green)">' + Number(ga.activeUsers).toLocaleString() + '</span></div>'
+              + '<div class="mini"><span class="mini-lbl">New Users</span><span class="mini-val">' + Number(ga.newUsers).toLocaleString() + '</span></div>'
+              + '<div class="mini"><span class="mini-lbl">Sessions</span><span class="mini-val">' + Number(ga.sessions).toLocaleString() + '</span></div>'
               + '<div class="mini"><span class="mini-lbl">Avg Session</span><span class="mini-val">' + Math.floor(ga.avgSessionDurationSecs/60) + 'm ' + Math.round(ga.avgSessionDurationSecs%60) + 's</span></div>'
               + '<div class="mini"><span class="mini-lbl">Bounce Rate</span><span class="mini-val" style="color:var(--amber)">' + ga.bounceRate.toFixed(1) + '%</span></div>'
               + '<div class="mini"><span class="mini-lbl">Engagement Rate</span><span class="mini-val" style="color:var(--green)">' + ga.engagementRate.toFixed(1) + '%</span></div>'
               + '</div>'
-              + '<div class="card"><div class="card-head"><span class="card-title">7-Day Snapshot</span></div>'
-              + '<div class="mini"><span class="mini-lbl">Active Users</span><span class="mini-val" style="color:var(--blue)">' + Number(ga.activeUsers7d).toLocaleString() + '</span></div>'
-              + '<div class="mini"><span class="mini-lbl">New Users</span><span class="mini-val">' + Number(ga.newUsers7d).toLocaleString() + '</span></div>'
-              + '<div class="mini"><span class="mini-lbl">Sessions</span><span class="mini-val">' + Number(ga.sessions7d).toLocaleString() + '</span></div>'
+              + '<div class="card"><div class="card-head"><span class="card-title">Today & Devices</span></div>'
               + '<div class="mini"><span class="mini-lbl">Active Today</span><span class="mini-val" style="color:var(--green)">' + Number(ga.activeUsersToday).toLocaleString() + '</span></div>'
               + '<div style="margin-top:14px;"><div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--faint);margin-bottom:8px;">DEVICE BREAKDOWN</div>'
               + ga.deviceBreakdown.map(function(dev) {
@@ -1186,13 +1204,6 @@ router.get("/", requireKey, (req, res) => {
                     + '</div>';
                 }).join('')
               + '</div></div></div>';
-          sentimentHdr.parentNode.insertBefore(block, sentimentHdr);
-          // Place App Event Analytics immediately after GA4 section
-          if (_pendingEvBlock) {
-            block.parentNode.insertBefore(_pendingEvBlock, block.nextSibling);
-            _pendingEvBlock = null;
-          }
-        }
       }
     }
 

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { requireKey } from "../middleware/auth";
-import { getGA4Stats } from "../ga4.service";
+import { getGA4Stats, type GA4Stats } from "../ga4.service";
 
 const router = Router();
 
@@ -18,7 +18,7 @@ router.get("/api/stats", requireKey, async (req, res) => {
       fetch(
         `${FANPATH_API_URL}/api/federation/stats?key=${encodeURIComponent(FEDERATION_KEY)}&window=${window}${nationParam}`
       ),
-      getGA4Stats(),
+      getGA4Stats(window as "24h" | "7d" | "30d" | "all"),
     ]);
     const db = (dbRes.ok ? await dbRes.json() : {}) as Record<string, unknown>;
     res.json({ ...db, ga4 });
