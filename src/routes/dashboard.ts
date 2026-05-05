@@ -222,40 +222,82 @@ router.get("/", requireKey, (req, res) => {
       e.stopPropagation();
       var existing = document.getElementById('fp-nation-dd');
       if (existing) { existing.remove(); return; }
+
       var dd = document.createElement('div');
       dd.id = 'fp-nation-dd';
-      dd.style.cssText = 'position:fixed;background:#fff;border:1px solid #e5e5e5;border-radius:10px;padding:6px 0;min-width:220px;box-shadow:0 8px 24px rgba(0,0,0,0.12);z-index:9999;font-size:13px;font-family:DM Sans,sans-serif;';
-      var rawNations = _lastData && _lastData.topNations ? _lastData.topNations : [];
-      var nations = mergeNations(rawNations).slice(0,10);
-      var header = '<div style="padding:6px 14px 8px;color:#aaa;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;border-bottom:1px solid #f0f0f0;margin-bottom:4px;">SELECT NATION</div>';
-      var rows = nations.length
-        ? nations.map(function(n) {
-            var isActive = n.nation === currentNation;
-            return '<div data-nation-slug="' + n.nation + '" style="padding:7px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;'
-              + (isActive ? 'background:#f5fff8;' : '')
-              + '">'
-              + '<span style="font-weight:' + (isActive ? '700' : '500') + ';color:' + (isActive ? 'var(--green,#22c55e)' : 'inherit') + ';">' + fmtNation(n.nation) + '</span>'
-              + '<span style="font-size:11px;color:#888;font-family:monospace;">' + Number(n.count).toLocaleString() + ' fans</span></div>';
-          }).join('')
-        : '<div style="padding:10px 14px;color:#aaa;">Loading…</div>';
-      dd.innerHTML = header + rows;
-      // Click handler for each nation row
-      dd.querySelectorAll('[data-nation-slug]').forEach(function(row) {
-        row.addEventListener('click', function(ev) {
-          ev.stopPropagation();
-          var slug = row.getAttribute('data-nation-slug');
-          dd.remove();
-          if (slug && slug !== currentNation) {
-            currentNation = slug;
-            updateNationLabel(slug);
-            loadData(currentWindow);
-          }
+      dd.style.cssText = 'position:fixed;background:#fff;border:1px solid #e5e5e5;border-radius:12px;min-width:260px;box-shadow:0 8px 32px rgba(0,0,0,0.14);z-index:9999;font-size:13px;font-family:DM Sans,sans-serif;display:flex;flex-direction:column;max-height:420px;overflow:hidden;';
+
+      var allNations = mergeNations(_lastData && _lastData.topNations ? _lastData.topNations : []);
+
+      function buildRows(filter) {
+        var filtered = filter
+          ? allNations.filter(function(n) { return fmtNation(n.nation).toLowerCase().includes(filter.toLowerCase()); })
+          : allNations;
+        list.innerHTML = '';
+        if (!filtered.length) {
+          var empty = document.createElement('div');
+          empty.style.cssText = 'padding:14px;color:#aaa;text-align:center;font-size:12px;';
+          empty.textContent = 'No nations found';
+          list.appendChild(empty);
+          return;
+        }
+        filtered.forEach(function(n) {
+          var isActive = n.nation === currentNation;
+          var row = document.createElement('div');
+          row.setAttribute('data-nation-slug', n.nation);
+          row.style.cssText = 'padding:8px 16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;'
+            + (isActive ? 'background:#f5fff8;' : '');
+          row.innerHTML = '<span style="font-weight:' + (isActive ? '700' : '500') + ';color:' + (isActive ? '#22c55e' : 'inherit') + ';">' + fmtNation(n.nation) + '</span>'
+            + '<span style="font-size:11px;color:#aaa;font-family:monospace;">' + Number(n.count).toLocaleString() + ' fans</span>';
+          row.addEventListener('mouseenter', function() { if (!isActive) row.style.background = '#f8f8f8'; });
+          row.addEventListener('mouseleave', function() { row.style.background = isActive ? '#f5fff8' : ''; });
+          row.addEventListener('click', function(ev) {
+            ev.stopPropagation();
+            var slug = row.getAttribute('data-nation-slug');
+            dd.remove();
+            if (slug && slug !== currentNation) {
+              currentNation = slug;
+              updateNationLabel(slug);
+              loadData(currentWindow);
+            }
+          });
+          list.appendChild(row);
         });
-      });
+      }
+
+      // Search bar
+      var searchWrap = document.createElement('div');
+      searchWrap.style.cssText = 'padding:10px 12px 8px;border-bottom:1px solid #f0f0f0;flex-shrink:0;';
+      var searchInput = document.createElement('input');
+      searchInput.type = 'text';
+      searchInput.placeholder = 'Search nation…';
+      searchInput.style.cssText = 'width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px;font-family:DM Sans,sans-serif;outline:none;color:#1a1a1a;';
+      searchInput.addEventListener('click', function(ev) { ev.stopPropagation(); });
+      searchInput.addEventListener('input', function() { buildRows(searchInput.value.trim()); });
+      searchWrap.appendChild(searchInput);
+
+      // Header label
+      var hdr = document.createElement('div');
+      hdr.style.cssText = 'padding:6px 16px 6px;color:#aaa;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;flex-shrink:0;';
+      hdr.textContent = 'SELECT NATION';
+
+      // Scrollable list
+      var list = document.createElement('div');
+      list.style.cssText = 'overflow-y:auto;flex:1;padding:4px 0;';
+
+      dd.appendChild(searchWrap);
+      dd.appendChild(hdr);
+      dd.appendChild(list);
+      buildRows('');
+
       var rect = fedSel.getBoundingClientRect();
       dd.style.top = (rect.bottom + 6) + 'px';
       dd.style.right = (window.innerWidth - rect.right) + 'px';
       document.body.appendChild(dd);
+
+      // Focus search after mount
+      setTimeout(function() { searchInput.focus(); }, 10);
+
       setTimeout(function() {
         document.addEventListener('click', function hdl() {
           dd.remove();
