@@ -807,6 +807,68 @@ router.get("/", requireKey, (req, res) => {
       }
     }
 
+    // ── Live Intel & Official Intel Feed — replace static content ───────────────
+    var intel = d.recentIntel || [];
+    if (intel.length) {
+      function timeAgo(iso) {
+        var diff = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+        if (diff < 1)   return 'just now';
+        if (diff < 60)  return diff + 'm ago';
+        if (diff < 1440) return Math.floor(diff/60) + 'h ago';
+        return Math.floor(diff/1440) + 'd ago';
+      }
+      function nationTag(id) {
+        return id ? id.toUpperCase() : 'INTL';
+      }
+
+      // Live Intel compact card (top 4 articles)
+      var liveIntelCard = Array.from(document.querySelectorAll('.card-title'))
+        .find(function(el) { return el.textContent.trim() === 'Live Intel'; });
+      if (liveIntelCard) {
+        var liveCard = liveIntelCard.closest('.card');
+        // Remove old static trend-items
+        liveCard.querySelectorAll('.trend-item').forEach(function(el) { el.remove(); });
+        intel.slice(0,4).forEach(function(art) {
+          var item = document.createElement('div');
+          item.className = 'trend-item';
+          item.style.cssText = 'cursor:pointer;';
+          item.innerHTML =
+            '<div class="trend-top">'
+            + '<span class="tag tag-brk">' + nationTag(art.nationId) + '</span>'
+            + '<span class="trend-meta">' + timeAgo(art.publishedAt) + '</span>'
+            + '</div>'
+            + '<div class="trend-text" style="font-size:12px;line-height:1.4;">' + art.title + '</div>'
+            + (art.sourceName ? '<div style="font-size:10px;color:var(--faint);margin-top:3px;">' + art.sourceName + '</div>' : '');
+          item.addEventListener('click', function() { window.open(art.url, '_blank'); });
+          liveCard.appendChild(item);
+        });
+      }
+
+      // Official Intel Feed (full card, up to 8 articles)
+      var intelFeedCard = Array.from(document.querySelectorAll('.card-title'))
+        .find(function(el) { return el.textContent.trim() === 'Official Intel Feed'; });
+      if (intelFeedCard) {
+        var feedCard = intelFeedCard.closest('.card');
+        feedCard.querySelectorAll('.intel-item').forEach(function(el) { el.remove(); });
+        intel.slice(0,8).forEach(function(art) {
+          var item = document.createElement('div');
+          item.className = 'intel-item';
+          item.style.cssText = 'cursor:pointer;';
+          item.innerHTML =
+            '<div class="intel-icon" style="background:var(--blue-dim);font-size:14px;">&#x1F4F0;</div>'
+            + '<div class="intel-body">'
+            + '<div class="intel-text" style="font-size:12px;line-height:1.4;">' + art.title
+            + (art.sourceName ? '<span class="src src-fed" style="margin-left:6px;">' + art.sourceName + '</span>' : '')
+            + '</div>'
+            + (art.description ? '<div style="font-size:11px;color:var(--muted);margin-top:2px;line-height:1.3;">' + art.description.slice(0,120) + (art.description.length > 120 ? '…' : '') + '</div>' : '')
+            + '<div class="intel-meta">' + timeAgo(art.publishedAt) + ' · ' + nationTag(art.nationId) + '</div>'
+            + '</div>';
+          item.addEventListener('click', function() { window.open(art.url, '_blank'); });
+          feedCard.appendChild(item);
+        });
+      }
+    }
+
     // Footer timestamp
     var footer = document.querySelector('footer');
     if (footer) {
