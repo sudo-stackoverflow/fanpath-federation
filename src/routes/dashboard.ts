@@ -218,7 +218,6 @@ router.get("/", requireKey, (req, res) => {
   if (fedSel) {
     fedSel.style.cursor = 'pointer';
     fedSel.style.userSelect = 'none';
-    updateNationLabel(currentNation); // set initial label
     fedSel.addEventListener('click', function(e) {
       e.stopPropagation();
       var existing = document.getElementById('fp-nation-dd');
@@ -1329,6 +1328,7 @@ router.get("/", requireKey, (req, res) => {
   }
 
   // ── Boot ─────────────────────────────────────────────────────────────────────
+  updateNationLabel(currentNation); // NATION_MAP is defined above — safe to call here
   loadData(currentWindow);
 
   // Auto-refresh every 5 minutes
