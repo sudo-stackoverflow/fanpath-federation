@@ -38,8 +38,8 @@ router.get("/", requireKey, (req, res) => {
     {s: 'Fans by Host City',              t: 'card'},                                         // 4  City Intelligence
     // ANALYTICS (5–7)
     {s: 'PLATFORM INTELLIGENCE',          t: 'section'},                                      // 5  Platform Analytics
-    {s: 'APP EVENT ANALYTICS',            t: 'section'},                                      // 6  App Events
-    {s: 'GOOGLE ANALYTICS 4',             t: 'section'},                                      // 7  GA4 Overview
+    {s: 'GOOGLE ANALYTICS 4',             t: 'section'},                                      // 6  GA4 Overview
+    {s: 'APP EVENT ANALYTICS',            t: 'section'},                                      // 7  App Events
     // ENGAGEMENT (8–11)
     {s: 'Trending in',                    t: 'card'},                                         // 8  Community Activity
     {s: 'Official Intel Feed',            t: 'card'},                                         // 9  Intel Feed
@@ -592,6 +592,7 @@ router.get("/", requireKey, (req, res) => {
   // ── Render data ──────────────────────────────────────────────────────────────
   function render(d) {
     _lastData = d;
+    var _pendingEvBlock = null; // holds evBlock until GA4 section is ready to anchor it
 
     var mergedNations = mergeNations(d.topNations);
 
@@ -1093,21 +1094,8 @@ router.get("/", requireKey, (req, res) => {
             ]) +
           '</div>';
 
-        // Insert right after the heatmap row (sentinel div placed in HTML)
-        var afterHeatmap = document.getElementById('fp-after-heatmap');
-        if (afterHeatmap) {
-          afterHeatmap.parentNode.insertBefore(evBlock, afterHeatmap.nextSibling);
-        } else {
-          // Fallback: before SAFETY INTELLIGENCE
-          var safetyHdr = Array.from(document.querySelectorAll('.section-hdr'))
-            .find(function(el) { return el.textContent.includes('SAFETY'); });
-          if (safetyHdr) {
-            safetyHdr.parentNode.insertBefore(evBlock, safetyHdr);
-          } else {
-            var footer = document.querySelector('footer');
-            if (footer) footer.parentNode.insertBefore(evBlock, footer);
-          }
-        }
+        // Don't insert yet — store reference, GA4 section below will anchor it
+        _pendingEvBlock = evBlock;
       }
     }
 
@@ -1199,6 +1187,11 @@ router.get("/", requireKey, (req, res) => {
                 }).join('')
               + '</div></div></div>';
           sentimentHdr.parentNode.insertBefore(block, sentimentHdr);
+          // Place App Event Analytics immediately after GA4 section
+          if (_pendingEvBlock) {
+            block.parentNode.insertBefore(_pendingEvBlock, block.nextSibling);
+            _pendingEvBlock = null;
+          }
         }
       }
     }
