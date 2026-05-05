@@ -384,6 +384,34 @@ router.get("/", requireKey, (req, res) => {
     if (e) return e[0] + ' ' + e[1];
     return code.toUpperCase();
   }
+  // Page slug → readable label for Top Pages card
+  var PAGE_NAMES = {
+    '/':             'Home',
+    '/the-club':     'The Club',
+    '/my-path':      'My Path',
+    '/housing':      'Housing',
+    '/tickets':      'Tickets',
+    '/tournament':   'Tournament',
+    '/simulator':    'Simulator',
+    '/intel':        'Intel Feed',
+    '/community':    'Community',
+    '/onboarding':   'Onboarding',
+    '/login':        'Login',
+    '/signup':       'Sign Up',
+    '/settings':     'Settings',
+    '/profile':      'Profile',
+    '/events':       'Events',
+    '/match':        'Match',
+    '/draw':         'Draw',
+  };
+  function pageName(raw) {
+    if (!raw) return 'Unknown';
+    var norm = raw.split('?')[0].replace(/\/$/, '') || '/';
+    if (PAGE_NAMES[norm]) return PAGE_NAMES[norm];
+    if (/^\/profile\//.test(norm)) return 'Profile: ' + norm.split('/')[2];
+    var slug = norm.replace(/^\//, '').split('/')[0];
+    return slug ? slug.replace(/-/g,' ').replace(/\b\w/g,function(c){return c.toUpperCase();}) : 'Home';
+  }
   // Deduplicate topNations by normalising case, merge counts
   function mergeNations(nations) {
     var map = {};
@@ -936,11 +964,16 @@ router.get("/", requireKey, (req, res) => {
                     + '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%"></div></div>'
                     + '<div class="city-cnt">' + Number(c.users).toLocaleString() + '</div></div>';
                 }).join('')
-              + '<div style="margin-top:14px;"><div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--faint);margin-bottom:8px;">TOP PAGES</div>'
+              + '<div style="margin-top:14px;"><div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--faint);margin-bottom:10px;">TOP PAGES</div>'
               + ga.topPages.map(function(p) {
-                  var pg = p.page.length > 28 ? p.page.slice(0,28)+'…' : p.page;
-                  return '<div class="mini"><span class="mini-lbl" style="font-family:monospace;font-size:10px;">' + pg + '</span>'
-                  + '<span class="mini-val">' + Number(p.views).toLocaleString() + '</span></div>';
+                  var pgMax = (ga.topPages[0]||{}).views || 1;
+                  var pct = Math.max(6, Math.round((p.views / pgMax) * 100));
+                  return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">'
+                    + '<span style="flex:1;font-size:12px;font-weight:500;">' + pageName(p.page) + '</span>'
+                    + '<div style="width:60px;height:4px;background:rgba(0,0,0,0.07);border-radius:2px;">'
+                    + '<div style="width:' + pct + '%;height:100%;background:var(--blue);border-radius:2px;"></div></div>'
+                    + '<span style="font-size:11px;font-weight:600;color:var(--faint);width:36px;text-align:right;">' + Number(p.views).toLocaleString() + '</span>'
+                    + '</div>';
                 }).join('')
               + '</div></div></div>';
           sentimentHdr.parentNode.insertBefore(block, sentimentHdr);
