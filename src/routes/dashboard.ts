@@ -227,12 +227,13 @@ router.get("/", requireKey, (req, res) => {
       dd.id = 'fp-nation-dd';
       dd.style.cssText = 'position:fixed;background:#fff;border:1px solid #e5e5e5;border-radius:12px;min-width:260px;box-shadow:0 8px 32px rgba(0,0,0,0.14);z-index:9999;font-size:13px;font-family:DM Sans,sans-serif;display:flex;flex-direction:column;max-height:420px;overflow:hidden;';
 
-      var allNations = mergeNations(_lastData && _lastData.topNations ? _lastData.topNations : []);
-
       function buildRows(filter) {
-        var filtered = filter
-          ? allNations.filter(function(n) { return fmtNation(n.nation).toLowerCase().includes(filter.toLowerCase()); })
-          : allNations;
+        var lcFilter = filter ? filter.toLowerCase() : '';
+        var filtered = WC2026_NATIONS.filter(function(slug) {
+          if (!lcFilter) return true;
+          var label = fmtNation(slug).toLowerCase();
+          return label.includes(lcFilter);
+        });
         list.innerHTML = '';
         if (!filtered.length) {
           var empty = document.createElement('div');
@@ -241,23 +242,22 @@ router.get("/", requireKey, (req, res) => {
           list.appendChild(empty);
           return;
         }
-        filtered.forEach(function(n) {
-          var isActive = n.nation === currentNation;
+        filtered.forEach(function(slug) {
+          var isActive = slug === currentNation;
           var row = document.createElement('div');
-          row.setAttribute('data-nation-slug', n.nation);
-          row.style.cssText = 'padding:8px 16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;'
+          row.setAttribute('data-nation-slug', slug);
+          row.style.cssText = 'padding:9px 16px;cursor:pointer;display:flex;align-items:center;'
             + (isActive ? 'background:#f5fff8;' : '');
-          row.innerHTML = '<span style="font-weight:' + (isActive ? '700' : '500') + ';color:' + (isActive ? '#22c55e' : 'inherit') + ';">' + fmtNation(n.nation) + '</span>'
-            + '<span style="font-size:11px;color:#aaa;font-family:monospace;">' + Number(n.count).toLocaleString() + ' fans</span>';
+          row.innerHTML = '<span style="font-weight:' + (isActive ? '700' : '500') + ';color:' + (isActive ? '#22c55e' : 'inherit') + ';font-size:13px;">' + fmtNation(slug) + '</span>';
           row.addEventListener('mouseenter', function() { if (!isActive) row.style.background = '#f8f8f8'; });
           row.addEventListener('mouseleave', function() { row.style.background = isActive ? '#f5fff8' : ''; });
           row.addEventListener('click', function(ev) {
             ev.stopPropagation();
-            var slug = row.getAttribute('data-nation-slug');
+            var s = row.getAttribute('data-nation-slug');
             dd.remove();
-            if (slug && slug !== currentNation) {
-              currentNation = slug;
-              updateNationLabel(slug);
+            if (s && s !== currentNation) {
+              currentNation = s;
+              updateNationLabel(s);
               loadData(currentWindow);
             }
           });
@@ -415,37 +415,59 @@ router.get("/", requireKey, (req, res) => {
     'usa': ['🇺🇸', 'United States'], 'arg': ['🇦🇷', 'Argentina'],
     'bra': ['🇧🇷', 'Brazil'],        'can': ['🇨🇦', 'Canada'],
     'mex': ['🇲🇽', 'Mexico'],        'fra': ['🇫🇷', 'France'],
-    'eng': ['🏴', 'England'],         'esp': ['🇪🇸', 'Spain'],
+    'eng': ['🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'England'],      'esp': ['🇪🇸', 'Spain'],
     'ger': ['🇩🇪', 'Germany'],        'por': ['🇵🇹', 'Portugal'],
-    'ita': ['🇮🇹', 'Italy'],          'ned': ['🇳🇱', 'Netherlands'],
-    'bel': ['🇧🇪', 'Belgium'],        'jpn': ['🇯🇵', 'Japan'],
-    'kor': ['🇰🇷', 'South Korea'],    'aus': ['🇦🇺', 'Australia'],
-    'mar': ['🇲🇦', 'Morocco'],        'sen': ['🇸🇳', 'Senegal'],
-    'nga': ['🇳🇬', 'Nigeria'],        'col': ['🇨🇴', 'Colombia'],
-    'uru': ['🇺🇾', 'Uruguay'],        'ecu': ['🇪🇨', 'Ecuador'],
-    'chi': ['🇨🇱', 'Chile'],          'ven': ['🇻🇪', 'Venezuela'],
-    'per': ['🇵🇪', 'Peru'],           'cri': ['🇨🇷', 'Costa Rica'],
-    'pan': ['🇵🇦', 'Panama'],         'bol': ['🇧🇴', 'Bolivia'],
-    'par': ['🇵🇾', 'Paraguay'],       'hon': ['🇭🇳', 'Honduras'],
-    'sco': ['🏴', 'Scotland'],        'wal': ['🏴', 'Wales'],
-    'irl': ['🇮🇪', 'Ireland'],        'aut': ['🇦🇹', 'Austria'],
+    'ned': ['🇳🇱', 'Netherlands'],    'bel': ['🇧🇪', 'Belgium'],
+    'jpn': ['🇯🇵', 'Japan'],          'kor': ['🇰🇷', 'South Korea'],
+    'aus': ['🇦🇺', 'Australia'],      'mar': ['🇲🇦', 'Morocco'],
+    'sen': ['🇸🇳', 'Senegal'],        'nga': ['🇳🇬', 'Nigeria'],
+    'col': ['🇨🇴', 'Colombia'],       'uru': ['🇺🇾', 'Uruguay'],
+    'ecu': ['🇪🇨', 'Ecuador'],        'ven': ['🇻🇪', 'Venezuela'],
+    'cri': ['🇨🇷', 'Costa Rica'],     'pan': ['🇵🇦', 'Panama'],
+    'hon': ['🇭🇳', 'Honduras'],       'jam': ['🇯🇲', 'Jamaica'],
+    'sco': ['🏴󠁧󠁢󠁳󠁣󠁴󠁿', 'Scotland'],      'aut': ['🇦🇹', 'Austria'],
     'che': ['🇨🇭', 'Switzerland'],    'den': ['🇩🇰', 'Denmark'],
-    'swe': ['🇸🇪', 'Sweden'],         'nor': ['🇳🇴', 'Norway'],
     'pol': ['🇵🇱', 'Poland'],         'ukr': ['🇺🇦', 'Ukraine'],
     'cze': ['🇨🇿', 'Czechia'],        'srb': ['🇷🇸', 'Serbia'],
-    'cro': ['🇭🇷', 'Croatia'],        'svk': ['🇸🇰', 'Slovakia'],
-    'gre': ['🇬🇷', 'Greece'],         'tur': ['🇹🇷', 'Turkey'],
-    'sau': ['🇸🇦', 'Saudi Arabia'],   'qat': ['🇶🇦', 'Qatar'],
-    'irn': ['🇮🇷', 'Iran'],           'egy': ['🇪🇬', 'Egypt'],
-    'tun': ['🇹🇳', 'Tunisia'],        'alg': ['🇩🇿', 'Algeria'],
-    'cmr': ['🇨🇲', 'Cameroon'],       'gha': ['🇬🇭', 'Ghana'],
-    'zaf': ['🇿🇦', 'South Africa'],   'civ': ['🇨🇮', 'Ivory Coast'],
-    'mli': ['🇲🇱', 'Mali'],           'ind': ['🇮🇳', 'India'],
-    'chn': ['🇨🇳', 'China'],          'nzl': ['🇳🇿', 'New Zealand'],
-    'idn': ['🇮🇩', 'Indonesia'],      'pak': ['🇵🇰', 'Pakistan'],
-    'gbr': ['🇬🇧', 'Great Britain'],  'phl': ['🇵🇭', 'Philippines'],
+    'cro': ['🇭🇷', 'Croatia'],        'tur': ['🇹🇷', 'Turkey'],
+    'hun': ['🇭🇺', 'Hungary'],        'sau': ['🇸🇦', 'Saudi Arabia'],
+    'qat': ['🇶🇦', 'Qatar'],          'irn': ['🇮🇷', 'Iran'],
+    'egy': ['🇪🇬', 'Egypt'],          'tun': ['🇹🇳', 'Tunisia'],
+    'cmr': ['🇨🇲', 'Cameroon'],       'zaf': ['🇿🇦', 'South Africa'],
+    'civ': ['🇨🇮', 'Ivory Coast'],    'cod': ['🇨🇩', 'DR Congo'],
+    'alg': ['🇩🇿', 'Algeria'],        'mli': ['🇲🇱', 'Mali'],
+    'irq': ['🇮🇶', 'Iraq'],           'jor': ['🇯🇴', 'Jordan'],
+    'nzl': ['🇳🇿', 'New Zealand'],    'idn': ['🇮🇩', 'Indonesia'],
+    // extras kept for user-base matching
+    'ita': ['🇮🇹', 'Italy'],          'chi': ['🇨🇱', 'Chile'],
+    'per': ['🇵🇪', 'Peru'],           'bol': ['🇧🇴', 'Bolivia'],
+    'par': ['🇵🇾', 'Paraguay'],       'gha': ['🇬🇭', 'Ghana'],
+    'swe': ['🇸🇪', 'Sweden'],         'nor': ['🇳🇴', 'Norway'],
+    'gre': ['🇬🇷', 'Greece'],         'wal': ['🏴󠁧󠁢󠁷󠁬󠁳󠁿', 'Wales'],
+    'irl': ['🇮🇪', 'Ireland'],        'svk': ['🇸🇰', 'Slovakia'],
+    'ind': ['🇮🇳', 'India'],          'chn': ['🇨🇳', 'China'],
+    'pak': ['🇵🇰', 'Pakistan'],       'phl': ['🇵🇭', 'Philippines'],
     'tha': ['🇹🇭', 'Thailand'],       'vnm': ['🇻🇳', 'Vietnam'],
+    'gbr': ['🇬🇧', 'Great Britain'],
   };
+
+  // All 48 WC2026 qualified nations — shown in full in the nation dropdown
+  var WC2026_NATIONS = [
+    // Hosts (CONCACAF)
+    'usa','mex','can',
+    // CONMEBOL
+    'arg','bra','col','uru','ecu','ven',
+    // CONCACAF (remaining)
+    'pan','hon','jam','cri',
+    // UEFA
+    'ger','esp','fra','eng','por','ned','bel','che','cro','aut','hun','den','sco','srb','cze','tur',
+    // CAF
+    'mar','sen','egy','nga','civ','zaf','cod','cmr','tun',
+    // AFC
+    'jpn','kor','irn','sau','aus','qat','jor','irq','idn',
+    // OFC
+    'nzl',
+  ];
   function fmtNation(code) {
     var k = (code||'').toLowerCase();
     var e = NATION_MAP[k];
