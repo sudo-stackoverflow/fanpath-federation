@@ -1204,7 +1204,8 @@ router.get("/", requireKey, (req, res) => {
         var sc = safetyFeed.closest('.card');
         sc.querySelectorAll('.intel-item').forEach(function(el) { el.remove(); });
         sc.querySelectorAll('.inc-val, .inc-cell span').forEach(function(el) {
-          if (el.textContent && el.textContent !== el.parentElement.querySelector('span:first-child').textContent) el.textContent = '0';
+          var firstSpan = el.parentElement && el.parentElement.querySelector('span:first-child');
+          if (el.textContent && (!firstSpan || el.textContent !== firstSpan.textContent)) el.textContent = '0';
         });
       }
 
