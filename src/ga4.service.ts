@@ -298,10 +298,10 @@ export async function getGA4Stats(): Promise<GA4Stats> {
         orderBys: [{ metric: { metricName: "screenPageViews" }, desc: true }],
         limit: 5,
       }),
-      // DAU last 14 days
+      // DAU last 30 days (client slices to match the selected window)
       client.runReport({
         property,
-        dateRanges: [{ startDate: "13daysAgo", endDate: "today" }],
+        dateRanges: [{ startDate: "29daysAgo", endDate: "today" }],
         dimensions: [{ name: "date" }],
         metrics: [{ name: "activeUsers" }],
         orderBys: [{ dimension: { dimensionName: "date" } }],

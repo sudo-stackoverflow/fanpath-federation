@@ -621,15 +621,10 @@ router.get("/", requireKey, (req, res) => {
           barsEl.appendChild(col);
         });
       }
-      // Window tab active state
-      var currentWin = (window.location.search.indexOf('window=30d') !== -1) ? '30d'
-        : (window.location.search.indexOf('window=all') !== -1) ? 'all' : '7d';
+      // Update window label in signup chart legend
       var winLblEl = document.getElementById('fp-chart-window-lbl');
-      if (winLblEl) winLblEl.textContent = currentWin === '30d' ? 'Last 30 days' : currentWin === 'all' ? 'All time' : 'Last 7 days';
-      sigCard && sigCard.querySelectorAll('.chart-tab').forEach(function(tab) {
-        var isActive = tab.getAttribute('data-win') === currentWin;
-        tab.classList.toggle('chart-tab-active', isActive);
-      });
+      var sigWinLabel = currentWindow === '24h' ? 'Last 24h' : currentWindow === '7d' ? 'Last 7 days' : currentWindow === '30d' ? 'Last 30 days' : 'All time';
+      if (winLblEl) winLblEl.textContent = sigWinLabel;
     }
 
     // Signup card: growth badge
@@ -651,19 +646,6 @@ router.get("/", requireKey, (req, res) => {
         growthBadge.style.background = up ? 'var(--green-dim)' : 'var(--red-dim)';
         growthBadge.style.color = up ? 'var(--green)' : 'var(--red)';
       }
-    }
-
-    // Window tab click handler (runs once — guard with dataset)
-    var winTabsInited = document.body.dataset.fpWinTabs;
-    if (!winTabsInited) {
-      document.body.dataset.fpWinTabs = '1';
-      document.querySelectorAll('.chart-tab[data-win]').forEach(function(tab) {
-        tab.addEventListener('click', function() {
-          var win = tab.getAttribute('data-win');
-          var url = window.location.pathname + '?window=' + win;
-          window.location.href = url;
-        });
-      });
     }
 
     // City rows — scoped to "Fans by Host City" card only (avoids polluting GA4 country rows)
@@ -766,8 +748,11 @@ router.get("/", requireKey, (req, res) => {
           + '</div>';
       }).join('');
 
-      // DAU bar chart (dauLast14d)
-      var dau14 = (d.ga4 && d.ga4.dauLast14d) ? d.ga4.dauLast14d : [];
+      // DAU bar chart — slice GA4's 30-day array to match currentWindow
+      var dauAll = (d.ga4 && d.ga4.dauLast14d) ? d.ga4.dauLast14d : [];
+      var dauSlice = currentWindow === '24h' ? 1 : currentWindow === '7d' ? 7 : currentWindow === '30d' ? 30 : dauAll.length;
+      var dau14 = dauAll.slice(-dauSlice);
+      var dauWinLabel = currentWindow === '24h' ? '1-day' : currentWindow === '7d' ? '7-day' : currentWindow === '30d' ? '30-day' : 'All-time';
       var dauMax = Math.max.apply(null, dau14.map(function(x){return x.users;})) || 1;
       var dauPeakIdx = dau14.length ? dau14.reduce(function(best, x, i) {
         return x.users > dau14[best].users ? i : best;
@@ -827,11 +812,11 @@ router.get("/", requireKey, (req, res) => {
           '</div>' +
 
           // Card 3: DAU chart
-          '<div class="card" style="display:flex;flex-direction:column;"><div class="card-head"><span class="card-title">Daily Active Users · 14d</span><span style="font-size:10px;color:var(--faint);">GA4</span></div>' +
+          '<div class="card" style="display:flex;flex-direction:column;"><div class="card-head"><span class="card-title">Daily Active Users · ' + dauWinLabel + '</span><span style="font-size:10px;color:var(--faint);">GA4</span></div>' +
           dauHtml +
           (d.ga4 && d.ga4.available
             ? '<div class="chart-legend"><div class="leg-item"><div class="leg-dot" style="background:var(--green)"></div>Active Users (GA4)</div>'
-              + '<span style="font-size:10px;color:var(--faint);margin-left:auto;">14-day window</span></div>'
+              + '<span style="font-size:10px;color:var(--faint);margin-left:auto;">' + dauWinLabel + ' window</span></div>'
             : '') +
           '</div>' +
 
