@@ -397,19 +397,28 @@ router.get("/", requireKey, (req, res) => {
 
         evBlock.innerHTML =
           '<div class="section-hdr">APP EVENT ANALYTICS · 28-DAY</div>' +
+
+          // Row 1: Auth · Events · Housing
           '<div class="g3" style="margin-bottom:14px;">' +
-            evCard('Identity & Onboarding', [
+            evCard('Auth & Identity', [
               evRow('Sign-ups', ce.signed_up),
               evRow('Logins', ce.logged_in),
+              evRow('OTP Verified', ce.otp_verified),
+              evRow('Password Reset', ce.password_reset),
+              evRow('Logout', ce.logout),
               evRow('Profile Completed', ce.profile_completed),
               evRow('Joined Nation', ce.joined_nation),
               evRow('Switched Nation', ce.switched_nation),
             ]) +
             evCard('Events & Meetups', [
-              evRow('Event List Viewed', ce.event_list_viewed),
+              evRow('List Viewed', ce.event_list_viewed),
               evRow('Event Opened', ce.event_opened),
               evRow("RSVP'd", ce.event_rsvp),
               evRow('Event Created', ce.event_created),
+              evRow('Event Edited', ce.event_edited),
+              evRow('Event Deleted', ce.event_deleted),
+              evRow('Not Attended', ce.event_not_attended),
+              evRow('Left Event', ce.event_left),
             ]) +
             evCard('Housing', [
               evRow('List Viewed', ce.housing_list_viewed),
@@ -417,46 +426,111 @@ router.get("/", requireKey, (req, res) => {
               evRow('Post Created', ce.housing_post_created),
               evRow('Contact Clicked', ce.housing_contact_clicked),
               evRow('Saved', ce.housing_saved),
+              evRow('Post Edited', ce.housing_post_edited),
+              evRow('Post Deleted', ce.housing_post_deleted),
+              evRow('Marked Booked', ce.housing_marked_booked),
             ]) +
           '</div>' +
+
+          // Row 2: Tickets · My Path · Monetization
           '<div class="g3" style="margin-bottom:14px;">' +
             evCard('Tickets', [
               evRow('Board Viewed', ce.ticket_board_viewed),
               evRow('Ticket Opened', ce.ticket_opened),
               evRow('Post Created', ce.ticket_post_created),
               evRow('Contact Clicked', ce.ticket_contact_clicked),
+              evRow('Post Edited', ce.ticket_post_edited),
+              evRow('Post Deleted', ce.ticket_post_deleted),
+              evRow('Transaction Submitted', ce.transaction_amount_submitted),
             ]) +
-            evCard('My Path & Monetization', [
-              evRow('My Path Started', ce.my_path_started),
-              evRow('Path Generated', ce.my_path_generated),
-              evRow('Path Saved', ce.my_path_saved),
+            evCard('My Path', [
+              evRow('Started', ce.my_path_started),
+              evRow('Generated', ce.my_path_generated),
+              evRow('Saved', ce.my_path_saved),
+              evRow('Team Selected', ce.my_path_team_selected),
+              evRow('Airport Selected', ce.my_path_airport_selected),
+              evRow('Group Size Set', ce.my_path_group_size_selected),
+              evRow('Housing Clicked', ce.my_path_housing_clicked),
+              evRow('Tickets Clicked', ce.my_path_tickets_clicked),
+              evRow('Events Clicked', ce.my_path_events_clicked),
+              evRow('Listing Opened', ce.my_path_listing_opened),
+              evRow('Multi-City Plan', ce.multi_city_plan_created),
+              evRow('Trip Intent Set', ce.trip_intent_set),
+            ]) +
+            evCard('Monetization', [
               evRow('Paywall Viewed', ce.paywall_viewed),
               evRow('Purchase Started', ce.purchase_started),
               evRow('Purchase Completed', ce.purchase_completed),
+              evRow('Purchase Cancelled', ce.purchase_cancelled),
+              evRow('Premium Feature Used', ce.subscription_unlocked_feature_used),
+              evRow('Referral Shared', ce.referral_link_shared),
+              evRow('Referral Reward', ce.referral_reward_earned),
             ]) +
-            evCard('Social & Squads', [
+          '</div>' +
+
+          // Row 3: Social · Squads · Chat
+          '<div class="g3" style="margin-bottom:14px;">' +
+            evCard('Social Graph', [
+              evRow('Profile Viewed', ce.profile_viewed),
+              evRow('Friend Added', ce.friend_added),
+              evRow('Friend Rejected', ce.friend_rejected),
+              evRow('Friend Removed', ce.friend_removed),
+              evRow('Friend Blocked', ce.friend_blocked),
+              evRow('Badge Thrown', ce.badge_thrown),
+              evRow('Review Submitted', ce.review_submitted),
+              evRow('Review Dismissed', ce.review_dismissed),
+            ]) +
+            evCard('Squads', [
+              evRow('Builder Opened', ce.squad_builder_opened),
+              evRow('Create Started', ce.squad_create_started),
+              evRow('Squad Created', ce.squad_created),
+              evRow('Invite Accepted', ce.squad_invite_accepted),
+              evRow('Invite Declined', ce.squad_invite_declined),
+              evRow('Squad Confirmed', ce.squad_confirmed),
+              evRow('Squad Left', ce.squad_left),
+              evRow('Message Sent', ce.squad_message_sent),
+            ]) +
+            evCard('Chat & Messaging', [
               evRow('Chat Opened', ce.chat_opened),
               evRow('Message Sent', ce.message_sent),
               evRow('DM Started', ce.dm_started),
-              evRow('Friend Added', ce.friend_added),
-              evRow('Profile Viewed', ce.profile_viewed),
-              evRow('Squad Created', ce.squad_created),
-              evRow('Invite Accepted', ce.squad_invite_accepted),
-              evRow('Squad Confirmed', ce.squad_confirmed),
+              evRow('DM Interest Sent', ce.dm_interest_sent),
+              evRow('P2P Mode Started', ce.p2p_mode_started),
+              evRow('Filter Applied', ce.listing_filter_applied),
+              evRow('App Install Tapped', ce.app_install_tapped),
+              evRow('Push Enabled', ce.push_notification_enabled),
             ]) +
           '</div>' +
+
+          // Row 4: Simulator · Intel · Community
           '<div class="g3" style="margin-bottom:14px;">' +
-            evCard('Simulator & Brackets', [
+            evCard('Simulator & Draw', [
               evRow('Simulator Opened', ce.simulator_opened),
               evRow('Bracket Started', ce.bracket_started),
               evRow('Bracket Saved', ce.bracket_saved),
+              evRow('Bracket Shared', ce.bracket_shared),
+              evRow('Draw Opened', ce.draw_opened),
+              evRow('Draw Randomized', ce.draw_randomized),
+              evRow('Advanced Pot', ce.draw_advanced_pot),
             ]) +
-            evCard('Intel & Community Feed', [
-              evRow('Intel Feed Viewed', ce.intel_feed_viewed),
-              evRow('Intel Post Opened', ce.intel_post_opened),
+            evCard('Intel Feed', [
+              evRow('Feed Viewed', ce.intel_feed_viewed),
+              evRow('Post Opened', ce.intel_post_opened),
+              evRow('Post Engaged', ce.intel_post_engaged),
+              evRow('Reacted', ce.intel_reacted),
+              evRow('Commented', ce.intel_commented),
+              evRow('Reposted', ce.intel_reposted),
+            ]) +
+            evCard('Community Feed', [
               evRow('Post Reacted', ce.post_reacted),
               evRow('Post Commented', ce.post_commented),
+              evRow('Comment Replied', ce.post_comment_replied),
               evRow('Post Reposted', ce.post_reposted),
+              evRow('Post Saved', ce.post_saved),
+              evRow('Post Reported', ce.post_reported),
+              evRow('Post Deleted', ce.post_deleted),
+              evRow('Link Copied', ce.post_copied_link),
+              evRow('Notif Toggled', ce.post_notification_toggled),
             ]) +
           '</div>';
 
