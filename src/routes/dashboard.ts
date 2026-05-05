@@ -351,8 +351,14 @@ router.get("/", requireKey, (req, res) => {
       });
     });
 
-    // Signup bars + growth badge
+    // Signup bars + growth badge — zero ALL bars first so no stale static HTML shows
     var bars    = document.querySelectorAll('.bar-col');
+    bars.forEach(function(col) {
+      var barG = col.querySelector('.bar-g');
+      var barB = col.querySelector('.bar-b');
+      if (barG) barG.style.height = '4%';
+      if (barB) barB.style.height = '0%';
+    });
     var signups = d.signupsByDay || [];
     var maxSig  = Math.max.apply(null, signups.map(function(s){return s.count;})) || 1;
     var offset  = bars.length - signups.length;
@@ -746,13 +752,37 @@ router.get("/", requireKey, (req, res) => {
 
     // GA4 block
     if (ga && ga.available) {
-      // Engagement ring
+      // Engagement ring — update arcs + add hover tooltip
       var ringVal = document.querySelector('.ring-val');
       if (ringVal) ringVal.textContent = ga.engagementRate.toFixed(1) + '%';
-      var ringCircle = document.querySelector('.ring svg circle:nth-child(2)');
-      if (ringCircle) {
+      var ringCircleOuter = document.querySelector('.ring svg circle:nth-child(2)');
+      if (ringCircleOuter) {
         var circ = 2 * Math.PI * 48;
-        ringCircle.setAttribute('stroke-dashoffset', (circ * (1 - ga.engagementRate / 100)).toFixed(1));
+        ringCircleOuter.setAttribute('stroke-dashoffset', (circ * (1 - ga.engagementRate / 100)).toFixed(1));
+      }
+      // Add hover tooltip to engagement ring card (only once)
+      var engCard = document.querySelector('.ring-wrap');
+      if (engCard && !engCard.getAttribute('data-tip-set')) {
+        engCard.setAttribute('data-tip-set', '1');
+        engCard.style.cursor = 'default';
+        var engTip = document.createElement('div');
+        engTip.style.cssText = 'display:none;position:absolute;background:#1a1a1a;color:#fff;font-size:11px;font-family:DM Sans,sans-serif;padding:8px 12px;border-radius:8px;z-index:999;white-space:nowrap;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.2);line-height:1.6;';
+        engCard.style.position = 'relative';
+        engCard.appendChild(engTip);
+        engCard.addEventListener('mouseenter', function() {
+          engTip.innerHTML =
+            'Engagement Rate: <b>' + ga.engagementRate.toFixed(1) + '%</b><br>'
+            + 'Bounce Rate: <b>' + ga.bounceRate.toFixed(1) + '%</b><br>'
+            + 'Avg Session: <b>' + Math.floor(ga.avgSessionDurationSecs/60) + 'm ' + Math.round(ga.avgSessionDurationSecs%60) + 's</b><br>'
+            + 'Active Today: <b>' + Number(ga.activeUsersToday).toLocaleString() + '</b>';
+          engTip.style.display = 'block';
+        });
+        engCard.addEventListener('mouseleave', function() { engTip.style.display = 'none'; });
+        engCard.addEventListener('mousemove', function(e) {
+          var rect = engCard.getBoundingClientRect();
+          engTip.style.left = (e.clientX - rect.left + 12) + 'px';
+          engTip.style.top  = (e.clientY - rect.top  - 10) + 'px';
+        });
       }
 
       // Inject GA4 section (only once)
