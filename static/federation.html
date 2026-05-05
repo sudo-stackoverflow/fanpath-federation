@@ -513,6 +513,8 @@
       align-items: flex-end;   /* all bars share one bottom baseline */
       gap: 4px;
       height: 160px;
+      width: 100%;             /* card determines the width, not the bars */
+      min-width: 0;            /* prevent bars from expanding the card */
       overflow-x: auto;        /* scroll when many bars (30d / all) */
       overflow-y: visible;     /* peak labels can overflow upward */
       padding-top: 0;
@@ -525,8 +527,8 @@
     .bars::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 2px; }
 
     .bar-col {
-      flex: 0 0 auto;          /* fixed width — never squish */
-      min-width: 28px;
+      flex: 1 0 auto;          /* grow to fill space, but fixed minimum per bar */
+      min-width: 20px;         /* each bar has a sensible minimum — triggers scroll on 30d+ */
       display: flex;
       flex-direction: column;
       align-items: center;
