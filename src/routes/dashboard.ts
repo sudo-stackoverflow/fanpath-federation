@@ -1205,23 +1205,45 @@ router.get("/", requireKey, (req, res) => {
           feedCard.appendChild(item);
         });
       }
+
+      // Trending in [Nation] Community — populate with nation intel articles
+      var trendingTitle = Array.from(document.querySelectorAll('.card-title'))
+        .find(function(el) { return el.textContent.includes('Trending in'); });
+      if (trendingTitle) {
+        var trendingCard = trendingTitle.closest('.card');
+        // Update title to reflect current nation
+        var nationInfo = NATION_MAP[currentNation];
+        var nationLabel = nationInfo ? nationInfo[0] + ' ' + nationInfo[1] : currentNation.toUpperCase();
+        trendingTitle.textContent = 'Trending in ' + nationLabel + ' Community';
+        // Rebuild items
+        trendingCard.querySelectorAll('.trend-item, .fp-no-data').forEach(function(el) { el.remove(); });
+        if (intel.length) {
+          intel.slice(0, 6).forEach(function(art) {
+            var item = document.createElement('div');
+            item.className = 'trend-item';
+            item.style.cssText = 'cursor:pointer;';
+            item.innerHTML =
+              '<div class="trend-top">'
+              + (art.sourceName ? '<span class="tag tag-brk" style="font-size:9px;padding:2px 5px;">' + art.sourceName.toUpperCase() + '</span>' : '')
+              + '<span class="trend-meta">' + timeAgo(art.publishedAt) + '</span>'
+              + '</div>'
+              + '<div class="trend-text" style="font-size:12px;line-height:1.4;">' + art.title + '</div>';
+            item.addEventListener('click', function() { window.open(art.url, '_blank'); });
+            trendingCard.appendChild(item);
+          });
+        } else {
+          var noData = document.createElement('div');
+          noData.className = 'fp-no-data';
+          noData.style.cssText = 'font-size:12px;color:var(--faint);padding:16px 0;text-align:center;';
+          noData.textContent = 'No intel available for this nation yet';
+          trendingCard.appendChild(noData);
+        }
+      }
     }
 
     // ── Clear fake static placeholder content (run once, guard with data attr) ───
     if (!document.body.dataset.fpCleaned) {
       document.body.dataset.fpCleaned = '1';
-
-      // Trending in Argentina Community — clear 5 hardcoded fake trend items
-      var trendCard = Array.from(document.querySelectorAll('.card-title'))
-        .find(function(el) { return el.textContent.includes('Trending in'); });
-      if (trendCard) {
-        var tc = trendCard.closest('.card');
-        tc.querySelectorAll('.trend-item').forEach(function(el) { el.remove(); });
-        var noData = document.createElement('div');
-        noData.style.cssText = 'font-size:12px;color:var(--faint);padding:16px 0;text-align:center;';
-        noData.textContent = 'Community trending data coming soon';
-        tc.appendChild(noData);
-      }
 
       // Safety Intelligence — clear fake live feed items + zero counters
       var safetyFeed = Array.from(document.querySelectorAll('.card-title'))
