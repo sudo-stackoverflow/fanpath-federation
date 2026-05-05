@@ -1093,14 +1093,20 @@ router.get("/", requireKey, (req, res) => {
             ]) +
           '</div>';
 
-        // Insert before SAFETY INTELLIGENCE — i.e. right after the Intel Feed row
-        var safetyHdr = Array.from(document.querySelectorAll('.section-hdr'))
-          .find(function(el) { return el.textContent.includes('SAFETY'); });
-        if (safetyHdr) {
-          safetyHdr.parentNode.insertBefore(evBlock, safetyHdr);
+        // Insert right after the heatmap row (sentinel div placed in HTML)
+        var afterHeatmap = document.getElementById('fp-after-heatmap');
+        if (afterHeatmap) {
+          afterHeatmap.parentNode.insertBefore(evBlock, afterHeatmap.nextSibling);
         } else {
-          var footer = document.querySelector('footer');
-          if (footer) footer.parentNode.insertBefore(evBlock, footer);
+          // Fallback: before SAFETY INTELLIGENCE
+          var safetyHdr = Array.from(document.querySelectorAll('.section-hdr'))
+            .find(function(el) { return el.textContent.includes('SAFETY'); });
+          if (safetyHdr) {
+            safetyHdr.parentNode.insertBefore(evBlock, safetyHdr);
+          } else {
+            var footer = document.querySelector('footer');
+            if (footer) footer.parentNode.insertBefore(evBlock, footer);
+          }
         }
       }
     }
