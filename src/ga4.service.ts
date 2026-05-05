@@ -470,10 +470,27 @@ export async function getGA4Stats(): Promise<GA4Stats> {
         country: r.dimensionValues?.[0]?.value ?? "",
         users:   n(r.metricValues?.[0]?.value ?? "0"),
       })),
-      topPages: (pages[0]?.rows ?? []).map(r => ({
-        page:  r.dimensionValues?.[0]?.value ?? "",
-        views: n(r.metricValues?.[0]?.value ?? "0"),
-      })),
+      topPages: (() => {
+        // Collapse all /profile/* paths into a single "Profile" entry
+        const raw = (pages[0]?.rows ?? []).map(r => ({
+          page:  r.dimensionValues?.[0]?.value ?? "",
+          views: n(r.metricValues?.[0]?.value ?? "0"),
+        }));
+        const merged: { page: string; views: number }[] = [];
+        let profileTotal = 0;
+        for (const p of raw) {
+          if (p.page.startsWith("/profile/") || p.page === "/profile") {
+            profileTotal += p.views;
+          } else {
+            merged.push(p);
+          }
+        }
+        if (profileTotal > 0) {
+          merged.push({ page: "/profile", views: profileTotal });
+        }
+        // Re-sort by views descending after merging, keep top 5
+        return merged.sort((a, b) => b.views - a.views).slice(0, 5);
+      })(),
       dauLast14d: (dau[0]?.rows ?? []).map(r => {
         const raw = r.dimensionValues?.[0]?.value ?? "";
         const date = raw.length === 8

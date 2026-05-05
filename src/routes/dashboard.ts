@@ -508,7 +508,8 @@ router.get("/", requireKey, (req, res) => {
     if (!norm) norm = '/';
     if (PAGE_NAMES[norm]) return PAGE_NAMES[norm];
     var parts = norm.split('/');            // ['', 'profile', 'shubhoum'] or ['', 'the-club']
-    if (parts[1] === 'profile' && parts[2]) return 'Profile: ' + parts[2];
+    // Profile sub-paths are merged server-side into /profile — just in case any slip through
+    if (parts[1] === 'profile') return 'Profile';
     var slug = parts[1] || '';
     if (!slug) return 'Home';
     return slug.split('-').map(function(w) { return w.charAt(0).toUpperCase() + w.slice(1); }).join(' ');
