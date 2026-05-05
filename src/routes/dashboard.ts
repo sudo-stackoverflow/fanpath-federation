@@ -1182,13 +1182,14 @@ router.get("/", requireKey, (req, res) => {
         });
       }
 
-      // Official Intel Feed (full card, up to 8 articles)
+      // Official Intel Feed — append into .intel-scroll wrapper so card stays fixed height
       var intelFeedCard = Array.from(document.querySelectorAll('.card-title'))
         .find(function(el) { return el.textContent.trim() === 'Official Intel Feed'; });
       if (intelFeedCard) {
         var feedCard = intelFeedCard.closest('.card');
-        feedCard.querySelectorAll('.intel-item').forEach(function(el) { el.remove(); });
-        intel.slice(0,8).forEach(function(art) {
+        var feedScroll = feedCard.querySelector('.intel-scroll') || feedCard;
+        feedScroll.querySelectorAll('.intel-item').forEach(function(el) { el.remove(); });
+        intel.slice(0,12).forEach(function(art) {
           var item = document.createElement('div');
           item.className = 'intel-item';
           item.style.cssText = 'cursor:pointer;';
@@ -1202,23 +1203,24 @@ router.get("/", requireKey, (req, res) => {
             + '<div class="intel-meta">' + timeAgo(art.publishedAt) + ' · ' + nationTag(art.nationId) + '</div>'
             + '</div>';
           item.addEventListener('click', function() { window.open(art.url, '_blank'); });
-          feedCard.appendChild(item);
+          feedScroll.appendChild(item);
         });
       }
 
-      // Trending in [Nation] Community — populate with nation intel articles
+      // Trending in [Nation] Community — populate into .intel-scroll wrapper
       var trendingTitle = Array.from(document.querySelectorAll('.card-title'))
         .find(function(el) { return el.textContent.includes('Trending in'); });
       if (trendingTitle) {
         var trendingCard = trendingTitle.closest('.card');
+        var trendScroll = trendingCard.querySelector('.intel-scroll') || trendingCard;
         // Update title to reflect current nation
         var nationInfo = NATION_MAP[currentNation];
         var nationLabel = nationInfo ? nationInfo[0] + ' ' + nationInfo[1] : currentNation.toUpperCase();
         trendingTitle.textContent = 'Trending in ' + nationLabel + ' Community';
         // Rebuild items
-        trendingCard.querySelectorAll('.trend-item, .fp-no-data').forEach(function(el) { el.remove(); });
+        trendScroll.querySelectorAll('.trend-item, .fp-no-data').forEach(function(el) { el.remove(); });
         if (intel.length) {
-          intel.slice(0, 6).forEach(function(art) {
+          intel.slice(0, 12).forEach(function(art) {
             var item = document.createElement('div');
             item.className = 'trend-item';
             item.style.cssText = 'cursor:pointer;';
@@ -1229,14 +1231,14 @@ router.get("/", requireKey, (req, res) => {
               + '</div>'
               + '<div class="trend-text" style="font-size:12px;line-height:1.4;">' + art.title + '</div>';
             item.addEventListener('click', function() { window.open(art.url, '_blank'); });
-            trendingCard.appendChild(item);
+            trendScroll.appendChild(item);
           });
         } else {
           var noData = document.createElement('div');
           noData.className = 'fp-no-data';
           noData.style.cssText = 'font-size:12px;color:var(--faint);padding:16px 0;text-align:center;';
           noData.textContent = 'No intel available for this nation yet';
-          trendingCard.appendChild(noData);
+          trendScroll.appendChild(noData);
         }
       }
     }
