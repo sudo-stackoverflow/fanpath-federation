@@ -25,36 +25,50 @@ router.get("/", requireKey, (req, res) => {
   var FANPATH = 'https://www.usefanpath.com';
   var currentWindow = '7d';
 
-  // ── Sidebar scroll map ─────────────────────────────────────────────────────
+  // ── Sidebar nav — index-based mapping (matches sidebar order exactly) ────────
+  // Each entry: [search string, selector scope, action]
+  // scope: 'card' = .card-title, 'section' = .section-hdr, 'top'/'toast' = special
   var SIDEBAR_MAP = [
-    ['Dashboard',           null],
-    ['Fan Demographics',    'Fan Demographics'],
-    ['City Intelligence',   'Fans by Host City'],
-    ['Community Activity',  'FAN SENTIMENT TRACKER'],
-    ['Intel Feed',          'Official Intel Feed'],
-    ['Events & Meetups',    'Match Fan Demand'],
-    ['Housing Analytics',   'Housing Intel'],
-    ['Ticket Matching',     'Ticket Matching'],
-    ['Travel Patterns',     'Inter-City Travel Flow'],
-    ['Sponsor Metrics',     'Sponsor Engagement'],
-    ['Revenue Reports',     'Sponsor & Partner ROI Summary'],
-    ['Safety Layer',        'SAFETY INTELLIGENCE'],
-    ['Fan Sentiment',       'FAN SENTIMENT TRACKER'],
-    ['Forward Forecast',    'PREDICTIVE 7-DAY FORWARD FORECAST'],
-    ['Fan CRM',             'FAN CRM & LOYALTY'],
-    ['Black Market Intel',  'BLACK MARKET & TICKET INTELLIGENCE'],
-    ['Economic Impact',     'ECONOMIC IMPACT MODULE'],
-    ['Configuration',       null],
-    ['API Access',          null],
+    {s: null,                             t: 'top'},
+    {s: 'Fan Demographics',               t: 'card'},
+    {s: 'Fans by Host City',              t: 'card'},
+    {s: 'Trending in',                    t: 'card'},
+    {s: 'Official Intel Feed',            t: 'card'},
+    {s: 'Match Fan Demand',               t: 'card'},
+    {s: 'Housing Intel',                  t: 'card'},
+    {s: 'Ticket Matching',                t: 'card'},
+    {s: 'Inter-City Travel',              t: 'card'},
+    {s: 'Sponsor Engagement',             t: 'card'},
+    {s: 'Sponsor & Partner ROI',          t: 'card'},
+    {s: 'SAFETY INTELLIGENCE',            t: 'section'},
+    {s: 'FAN SENTIMENT',                  t: 'section'},
+    {s: 'PREDICTIVE',                     t: 'section'},
+    {s: 'FAN CRM',                        t: 'section'},
+    {s: 'BLACK MARKET',                   t: 'section'},
+    {s: 'ECONOMIC IMPACT',                t: 'section'},
+    {s: null,                             t: 'toast', m: 'Configuration panel coming soon'},
+    {s: null,                             t: 'toast', m: 'API key: Contact federation@usefanpath.com'},
   ];
 
-  function findSection(label) {
-    // Search both .section-hdr and .card-title
+  function findSection(str, scope) {
+    var sel = scope === 'section' ? '.section-hdr' : '.card-title';
+    var els = document.querySelectorAll(sel);
+    for (var i = 0; i < els.length; i++) {
+      if (els[i].textContent.trim().includes(str)) return els[i];
+    }
+    // fallback: search both
     var all = document.querySelectorAll('.section-hdr, .card-title');
-    for (var i = 0; i < all.length; i++) {
-      if (all[i].textContent.trim().includes(label)) return all[i];
+    for (var j = 0; j < all.length; j++) {
+      if (all[j].textContent.trim().includes(str)) return all[j];
     }
     return null;
+  }
+
+  function scrollToEl(el) {
+    if (!el) return;
+    var navH = 72; // sticky nav height offset
+    var top = el.getBoundingClientRect().top + window.pageYOffset - navH;
+    window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
   }
 
   // ── Live clock ──────────────────────────────────────────────────────────────
@@ -70,34 +84,69 @@ router.get("/", requireKey, (req, res) => {
   updateClock();
   setInterval(updateClock, 30000);
 
-  // ── Sidebar nav ─────────────────────────────────────────────────────────────
+  // ── Sidebar click nav ────────────────────────────────────────────────────────
   var sidebarItems = document.querySelectorAll('.sidebar-item');
-  sidebarItems.forEach(function(item) {
+  sidebarItems.forEach(function(item, idx) {
     item.style.cursor = 'pointer';
     item.addEventListener('click', function() {
       sidebarItems.forEach(function(s) { s.classList.remove('active'); });
       item.classList.add('active');
 
-      // Strip everything outside printable ASCII (space-tilde = 32-126)
-      // Using /[^ -~]/g avoids hex escapes that get mangled in the template literal
-      var label = item.textContent.replace(/[^ -~]/g,'').replace(/\s+/g,' ').trim();
-      // strip badge numbers ("3 new", "7")
-      label = label.replace(/\d+\s*new|\d+/gi,'').trim();
+      var entry = SIDEBAR_MAP[idx];
+      if (!entry) return;
 
-      var entry = SIDEBAR_MAP.find(function(e) { return label.startsWith(e[0]) || e[0].startsWith(label.split(' ')[0]); });
-      var target = entry && entry[1] ? findSection(entry[1]) : null;
-
-      if (label.includes('Dashboard')) {
+      if (entry.t === 'top') {
         window.scrollTo({ top: 0, behavior: 'smooth' });
-      } else if (label.includes('Configuration')) {
-        showToast('Configuration panel coming soon');
-      } else if (label.includes('API Access')) {
-        showToast('API key: Contact federation@usefanpath.com');
-      } else if (target) {
-        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else if (entry.t === 'toast') {
+        showToast(entry.m);
+      } else if (entry.s) {
+        var el = findSection(entry.s, entry.t);
+        if (el) {
+          scrollToEl(el);
+        } else {
+          showToast('Section not yet loaded');
+        }
       }
     });
   });
+
+  // ── Scroll-spy — highlight sidebar item matching current viewport section ───
+  function buildSectionAnchors() {
+    var anchors = [];
+    SIDEBAR_MAP.forEach(function(entry, idx) {
+      if (!entry.s || entry.t === 'toast' || entry.t === 'top') return;
+      var el = findSection(entry.s, entry.t);
+      if (el) anchors.push({ idx: idx, el: el });
+    });
+    return anchors;
+  }
+  var _anchors = null;
+  var _spyTick = false;
+  function onScroll() {
+    if (_spyTick) return;
+    _spyTick = true;
+    requestAnimationFrame(function() {
+      _spyTick = false;
+      if (!_anchors) _anchors = buildSectionAnchors();
+      var navH = 80;
+      var scrollY = window.pageYOffset;
+      if (scrollY < 120) {
+        sidebarItems.forEach(function(s) { s.classList.remove('active'); });
+        if (sidebarItems[0]) sidebarItems[0].classList.add('active');
+        return;
+      }
+      var active = null;
+      for (var i = _anchors.length - 1; i >= 0; i--) {
+        var top = _anchors[i].el.getBoundingClientRect().top + window.pageYOffset - navH;
+        if (scrollY >= top - 10) { active = _anchors[i].idx; break; }
+      }
+      if (active !== null) {
+        sidebarItems.forEach(function(s) { s.classList.remove('active'); });
+        if (sidebarItems[active]) sidebarItems[active].classList.add('active');
+      }
+    });
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
 
   // ── Time filter buttons ─────────────────────────────────────────────────────
   var tfBtns = document.querySelectorAll('.tf');
