@@ -320,7 +320,7 @@ router.get("/", requireKey, (req, res) => {
       });
     });
 
-    // Signup bars
+    // Signup bars + growth badge
     var bars    = document.querySelectorAll('.bar-col');
     var signups = d.signupsByDay || [];
     var maxSig  = Math.max.apply(null, signups.map(function(s){return s.count;})) || 1;
@@ -334,6 +334,26 @@ router.get("/", requireKey, (req, res) => {
       if (lbl)  lbl.textContent   = day.label || day.date.slice(8);
       col.title = day.date + ': ' + day.count + ' signups';
     });
+    // Signup card: show growth badge + 7d total
+    var signupCard = Array.from(document.querySelectorAll('.card-title'))
+      .find(function(el) { return el.textContent.includes('Daily Fan Signups'); });
+    if (signupCard) {
+      var growthBadge = signupCard.parentNode.querySelector('.fp-growth-badge');
+      if (!growthBadge) {
+        growthBadge = document.createElement('span');
+        growthBadge.className = 'fp-growth-badge';
+        growthBadge.style.cssText = 'font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;margin-left:8px;';
+        signupCard.parentNode.appendChild(growthBadge);
+      }
+      var g = d.signupGrowthPct;
+      var l7 = d.last7Signups || 0;
+      if (g !== null && g !== undefined) {
+        var up = g >= 0;
+        growthBadge.textContent = (up ? '+' : '') + g + '% vs prev 7d · ' + l7 + ' signups';
+        growthBadge.style.background = up ? 'var(--green-dim)' : 'var(--red-dim)';
+        growthBadge.style.color = up ? 'var(--green)' : 'var(--red)';
+      }
+    }
 
     // City rows — title-case + hyphen removal
     if (d.topCities && d.topCities.length) {
@@ -374,6 +394,153 @@ router.get("/", requireKey, (req, res) => {
             + '<span style="font-family:monospace;font-size:11px;color:var(--faint);">' + n.count.toLocaleString() + '</span>';
           card.appendChild(row);
         });
+      }
+    }
+
+    // ── New data sections (inject once) ─────────────────────────────────────────
+    if (!document.getElementById('fp-live-insights')) {
+      var insBlock = document.createElement('div');
+      insBlock.id = 'fp-live-insights';
+
+      // Free vs Premium bar
+      var total = d.totalUsers || 1;
+      var premPct = Math.round(((d.premiumUsers||0) / total) * 100);
+      var freePct = 100 - premPct;
+      var nationPct = Math.round(((d.nationVerifiedUsers||0) / total) * 100);
+
+      // Top MyPath teams rows
+      var teamsHtml = (d.topMyPathTeams||[]).slice(0,8).map(function(t, i) {
+        var teamMax = (d.topMyPathTeams[0]||{}).count || 1;
+        var pct = Math.round((t.count / teamMax) * 100);
+        var colors = ['var(--green)','var(--blue)','var(--amber)','var(--purple)','var(--red)','var(--green)','var(--blue)','var(--amber)'];
+        return '<div style="display:flex;align-items:center;gap:8px;margin-top:7px;font-size:12px;">'
+          + '<span style="font-size:10px;color:var(--faint);width:14px;text-align:right;">' + (i+1) + '</span>'
+          + '<span style="flex:1;font-weight:600;text-transform:uppercase;letter-spacing:.5px;">' + t.team + '</span>'
+          + '<div style="width:80px;height:4px;background:rgba(0,0,0,0.07);border-radius:2px;">'
+          + '<div style="width:' + pct + '%;height:100%;background:' + colors[i] + ';border-radius:2px;"></div></div>'
+          + '<span style="font-family:monospace;font-size:11px;color:var(--faint);width:28px;text-align:right;">' + t.count + '</span>'
+          + '</div>';
+      }).join('');
+
+      // Events by type pills
+      var typeColors = {
+        'watch-party': 'var(--green)', 'rally': 'var(--blue)', 'meetup': 'var(--amber)',
+        'carpool': 'var(--purple)', 'tailgate': 'var(--red)'
+      };
+      var typeHtml = (d.eventsByType||[]).map(function(t) {
+        var col = typeColors[t.type] || 'var(--faint)';
+        return '<div class="mini"><span class="mini-lbl" style="text-transform:capitalize;">' + t.type.replace(/-/g,' ') + '</span>'
+          + '<span class="mini-val" style="color:' + col + '">' + t.count + '</span></div>';
+      }).join('');
+
+      // Events by city
+      var evCityMax = ((d.eventsByCity||[])[0]||{}).count || 1;
+      var evCityHtml = (d.eventsByCity||[]).slice(0,6).map(function(c) {
+        var pct = Math.round((c.count / evCityMax) * 100);
+        return '<div style="display:flex;align-items:center;gap:8px;margin-top:6px;font-size:12px;">'
+          + '<span style="flex:1;font-weight:500;">' + titleCase(c.city) + '</span>'
+          + '<div style="width:80px;height:4px;background:rgba(0,0,0,0.07);border-radius:2px;">'
+          + '<div style="width:' + pct + '%;height:100%;background:var(--blue);border-radius:2px;"></div></div>'
+          + '<span style="font-family:monospace;font-size:11px;color:var(--faint);width:24px;text-align:right;">' + c.count + '</span>'
+          + '</div>';
+      }).join('');
+
+      // DAU sparkline (dauLast14d)
+      var dau14 = (d.ga4 && d.ga4.dauLast14d) ? d.ga4.dauLast14d : [];
+      var dauMax = Math.max.apply(null, dau14.map(function(x){return x.users;})) || 1;
+      var dauHtml = dau14.length
+        ? '<div style="display:flex;align-items:flex-end;gap:3px;height:48px;margin-top:8px;">'
+          + dau14.map(function(x) {
+              var h = Math.max(4, Math.round((x.users / dauMax) * 100));
+              return '<div title="' + x.date + ': ' + x.users + ' users" style="flex:1;background:var(--green);border-radius:2px 2px 0 0;height:' + h + '%;opacity:0.8;"></div>';
+            }).join('')
+          + '</div>'
+          + '<div style="display:flex;justify-content:space-between;font-size:9px;color:var(--faint);margin-top:3px;">'
+          + '<span>' + (dau14[0]||{}).date + '</span><span>' + (dau14[dau14.length-1]||{}).date + '</span></div>'
+        : '<div style="color:var(--faint);font-size:12px;padding:12px 0;">No GA4 data</div>';
+
+      insBlock.innerHTML =
+        '<div class="section-hdr">PLATFORM INTELLIGENCE · LIVE</div>' +
+        '<div class="g3" style="margin-bottom:14px;">' +
+
+          // Card 1: Fan Split
+          '<div class="card"><div class="card-head"><span class="card-title">Fan Base Breakdown</span></div>' +
+          '<div class="mini"><span class="mini-lbl">Total Fans</span><span class="mini-val" style="color:var(--green)">' + Number(d.totalUsers||0).toLocaleString() + '</span></div>' +
+          '<div class="mini"><span class="mini-lbl">Free Members</span><span class="mini-val">' + Number(d.freeUsers||0).toLocaleString() + '</span></div>' +
+          '<div class="mini"><span class="mini-lbl">Premium Members</span><span class="mini-val" style="color:var(--amber)">' + Number(d.premiumUsers||0).toLocaleString() + '</span></div>' +
+          '<div class="mini"><span class="mini-lbl">Nation Verified</span><span class="mini-val" style="color:var(--blue)">' + Number(d.nationVerifiedUsers||0).toLocaleString() + '</span></div>' +
+          '<div style="margin-top:12px;">' +
+            '<div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--faint);margin-bottom:6px;">PREMIUM SPLIT</div>' +
+            '<div style="display:flex;height:8px;border-radius:4px;overflow:hidden;gap:2px;">' +
+              '<div style="width:' + premPct + '%;background:var(--amber);border-radius:4px 0 0 4px;" title="' + premPct + '% Premium"></div>' +
+              '<div style="width:' + freePct + '%;background:rgba(0,0,0,0.08);border-radius:0 4px 4px 0;" title="' + freePct + '% Free"></div>' +
+            '</div>' +
+            '<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--faint);margin-top:4px;">' +
+              '<span>Premium ' + premPct + '%</span><span>Free ' + freePct + '%</span>' +
+            '</div>' +
+            '<div style="margin-top:8px;">' +
+            '<div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--faint);margin-bottom:4px;">NATION VERIFIED</div>' +
+            '<div style="display:flex;height:8px;border-radius:4px;overflow:hidden;gap:2px;">' +
+              '<div style="width:' + nationPct + '%;background:var(--blue);border-radius:4px 0 0 4px;" title="' + nationPct + '% Verified"></div>' +
+              '<div style="width:' + (100-nationPct) + '%;background:rgba(0,0,0,0.08);border-radius:0 4px 4px 0;"></div>' +
+            '</div>' +
+            '<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--faint);margin-top:4px;">' +
+              '<span>Verified ' + nationPct + '%</span><span>Unverified ' + (100-nationPct) + '%</span>' +
+            '</div>' +
+            '</div>' +
+          '</div></div>' +
+
+          // Card 2: MyPath top teams
+          '<div class="card"><div class="card-head"><span class="card-title">MyPath · Top Teams</span><span style="font-size:10px;color:var(--faint);">by plan count</span></div>' +
+          (teamsHtml || '<div style="color:var(--faint);font-size:12px;padding:12px 0;">No data yet</div>') +
+          '</div>' +
+
+          // Card 3: DAU chart
+          '<div class="card"><div class="card-head"><span class="card-title">Daily Active Users · 14d</span><span style="font-size:10px;color:var(--faint);">GA4</span></div>' +
+          dauHtml +
+          (d.ga4 && d.ga4.available ? '<div class="mini" style="margin-top:10px;"><span class="mini-lbl">Peak DAU</span><span class="mini-val" style="color:var(--green)">' + dauMax + '</span></div>' : '') +
+          '</div>' +
+
+        '</div>' +
+        '<div class="g2" style="margin-bottom:14px;">' +
+
+          // Card 4: Events by type + city
+          '<div class="card"><div class="card-head"><span class="card-title">Events Breakdown</span><span style="font-size:10px;color:var(--faint);">' + Number(d.totalEvents||0) + ' total</span></div>' +
+          '<div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--faint);margin-bottom:6px;">BY TYPE</div>' +
+          (typeHtml || '<div style="color:var(--faint);font-size:12px;">No events yet</div>') +
+          '<div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--faint);margin:12px 0 6px;">BY CITY</div>' +
+          (evCityHtml || '<div style="color:var(--faint);font-size:12px;">No events yet</div>') +
+          '</div>' +
+
+          // Card 5: Event RSVPs by city
+          '<div class="card"><div class="card-head"><span class="card-title">Fan Demand · RSVPs by City</span></div>' +
+          (function() {
+            var rsvps = d.eventRsvpsByCity || [];
+            var rsvpMax = (rsvps[0]||{}).rsvps || 1;
+            if (!rsvps.length) return '<div style="color:var(--faint);font-size:12px;padding:12px 0;">No RSVP data yet</div>';
+            return rsvps.slice(0,8).map(function(r) {
+              var pct = Math.round((r.rsvps / rsvpMax) * 100);
+              return '<div style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;">'
+                + '<div style="flex:1;">'
+                + '<div style="font-weight:600;margin-bottom:3px;">' + titleCase(r.city) + '</div>'
+                + '<div style="height:4px;background:rgba(0,0,0,0.07);border-radius:2px;">'
+                + '<div style="width:' + pct + '%;height:100%;background:var(--green);border-radius:2px;"></div></div>'
+                + '</div>'
+                + '<span style="font-family:monospace;font-size:11px;color:var(--faint);font-weight:600;">' + Number(r.rsvps).toLocaleString() + '</span>'
+                + '</div>';
+            }).join('');
+          })() +
+          '</div>' +
+
+        '</div>';
+
+      // Insert before GA4 events section (or before sentiment)
+      var sentinelEl = document.querySelector('.section-hdr');
+      var afterKpis = document.querySelector('.g3.anim');
+      if (afterKpis && afterKpis.nextSibling) {
+        afterKpis.parentNode.insertBefore(insBlock, afterKpis.nextSibling);
+      } else {
+        document.querySelector('footer').parentNode.insertBefore(insBlock, document.querySelector('footer'));
       }
     }
 
