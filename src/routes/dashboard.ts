@@ -280,7 +280,45 @@ router.get("/", requireKey, (req, res) => {
   function titleCase(str) {
     return str.replace(/-/g,' ').replace(/\b\w/g, function(c){return c.toUpperCase();});
   }
+  var NATION_MAP = {
+    'usa': ['🇺🇸', 'United States'], 'arg': ['🇦🇷', 'Argentina'],
+    'bra': ['🇧🇷', 'Brazil'],        'can': ['🇨🇦', 'Canada'],
+    'mex': ['🇲🇽', 'Mexico'],        'fra': ['🇫🇷', 'France'],
+    'eng': ['🏴', 'England'],         'esp': ['🇪🇸', 'Spain'],
+    'ger': ['🇩🇪', 'Germany'],        'por': ['🇵🇹', 'Portugal'],
+    'ita': ['🇮🇹', 'Italy'],          'ned': ['🇳🇱', 'Netherlands'],
+    'bel': ['🇧🇪', 'Belgium'],        'jpn': ['🇯🇵', 'Japan'],
+    'kor': ['🇰🇷', 'South Korea'],    'aus': ['🇦🇺', 'Australia'],
+    'mar': ['🇲🇦', 'Morocco'],        'sen': ['🇸🇳', 'Senegal'],
+    'nga': ['🇳🇬', 'Nigeria'],        'col': ['🇨🇴', 'Colombia'],
+    'uru': ['🇺🇾', 'Uruguay'],        'ecu': ['🇪🇨', 'Ecuador'],
+    'chi': ['🇨🇱', 'Chile'],          'ven': ['🇻🇪', 'Venezuela'],
+    'per': ['🇵🇪', 'Peru'],           'cri': ['🇨🇷', 'Costa Rica'],
+    'pan': ['🇵🇦', 'Panama'],         'bol': ['🇧🇴', 'Bolivia'],
+    'par': ['🇵🇾', 'Paraguay'],       'hon': ['🇭🇳', 'Honduras'],
+    'sco': ['🏴', 'Scotland'],        'wal': ['🏴', 'Wales'],
+    'irl': ['🇮🇪', 'Ireland'],        'aut': ['🇦🇹', 'Austria'],
+    'che': ['🇨🇭', 'Switzerland'],    'den': ['🇩🇰', 'Denmark'],
+    'swe': ['🇸🇪', 'Sweden'],         'nor': ['🇳🇴', 'Norway'],
+    'pol': ['🇵🇱', 'Poland'],         'ukr': ['🇺🇦', 'Ukraine'],
+    'cze': ['🇨🇿', 'Czechia'],        'srb': ['🇷🇸', 'Serbia'],
+    'cro': ['🇭🇷', 'Croatia'],        'svk': ['🇸🇰', 'Slovakia'],
+    'gre': ['🇬🇷', 'Greece'],         'tur': ['🇹🇷', 'Turkey'],
+    'sau': ['🇸🇦', 'Saudi Arabia'],   'qat': ['🇶🇦', 'Qatar'],
+    'irn': ['🇮🇷', 'Iran'],           'egy': ['🇪🇬', 'Egypt'],
+    'tun': ['🇹🇳', 'Tunisia'],        'alg': ['🇩🇿', 'Algeria'],
+    'cmr': ['🇨🇲', 'Cameroon'],       'gha': ['🇬🇭', 'Ghana'],
+    'zaf': ['🇿🇦', 'South Africa'],   'civ': ['🇨🇮', 'Ivory Coast'],
+    'mli': ['🇲🇱', 'Mali'],           'ind': ['🇮🇳', 'India'],
+    'chn': ['🇨🇳', 'China'],          'nzl': ['🇳🇿', 'New Zealand'],
+    'idn': ['🇮🇩', 'Indonesia'],      'pak': ['🇵🇰', 'Pakistan'],
+    'gbr': ['🇬🇧', 'Great Britain'],  'phl': ['🇵🇭', 'Philippines'],
+    'tha': ['🇹🇭', 'Thailand'],       'vnm': ['🇻🇳', 'Vietnam'],
+  };
   function fmtNation(code) {
+    var k = (code||'').toLowerCase();
+    var e = NATION_MAP[k];
+    if (e) return e[0] + ' ' + e[1];
     return code.toUpperCase();
   }
   // Deduplicate topNations by normalising case, merge counts
@@ -317,13 +355,15 @@ router.get("/", requireKey, (req, res) => {
       } else if (lbl === 'Housing Matches') {
         val.textContent  = Number(d.activeHousingListings||0).toLocaleString();
         if (delt) delt.textContent = 'Avg $' + (d.avgPricePerNight||0) + '/night';
-      } else if (lbl === 'Avg Spend / Fan') {
-        // Repurpose: show total events
+      } else if (lbl === 'Avg Spend / Fan' || kpi.dataset.kpiId === 'events') {
+        // Repurpose slot: show total events (mark with data-kpi-id so refresh doesn't re-mutate)
+        kpi.dataset.kpiId = 'events';
         lblEl.textContent = 'Total Events';
         val.textContent   = Number(d.totalEvents||0).toLocaleString();
         if (delt) delt.textContent = 'Across all host cities';
-      } else if (lbl === 'Sponsor Impressions' || lbl === 'Total Events') {
-        // Repurpose: show MyPath plans generated
+      } else if (lbl === 'Sponsor Impressions' || kpi.dataset.kpiId === 'mypath') {
+        // Repurpose slot: show MyPath plans (mark with data-kpi-id)
+        kpi.dataset.kpiId = 'mypath';
         lblEl.textContent = 'MyPath Plans';
         val.textContent   = Number(d.totalMyPathPlans||0).toLocaleString();
         if (delt) delt.textContent = 'AI itineraries generated';
@@ -392,9 +432,13 @@ router.get("/", requireKey, (req, res) => {
       }
     }
 
-    // City rows — title-case + hyphen removal
+    // City rows — scoped to "Fans by Host City" card only (avoids polluting GA4 country rows)
     if (d.topCities && d.topCities.length) {
-      var cityRows   = document.querySelectorAll('.city-row');
+      var cityCardTitle = Array.from(document.querySelectorAll('.card-title'))
+        .find(function(el) { return el.textContent.includes('Fans by Host City'); });
+      var cityRows = cityCardTitle
+        ? cityCardTitle.closest('.card').querySelectorAll('.city-row')
+        : document.querySelectorAll('.city-row');
       var totalFans  = d.topCities.reduce(function(s,c){return s+c.count;}, 0) || 1;
       d.topCities.slice(0, cityRows.length).forEach(function(city, i) {
         var row = cityRows[i];
@@ -852,7 +896,10 @@ router.get("/", requireKey, (req, res) => {
         return Math.floor(diff/1440) + 'd ago';
       }
       function nationTag(id) {
-        return id ? id.toUpperCase() : 'INTL';
+        if (!id) return 'INTL';
+        var k = id.toLowerCase();
+        var e = NATION_MAP[k];
+        return e ? e[0] + ' ' + e[1] : id.toUpperCase();
       }
 
       // Live Intel compact card (top 4 articles)
@@ -900,6 +947,89 @@ router.get("/", requireKey, (req, res) => {
           item.addEventListener('click', function() { window.open(art.url, '_blank'); });
           feedCard.appendChild(item);
         });
+      }
+    }
+
+    // ── Clear fake static placeholder content (run once, guard with data attr) ───
+    if (!document.body.dataset.fpCleaned) {
+      document.body.dataset.fpCleaned = '1';
+
+      // Trending in Argentina Community — clear 5 hardcoded fake trend items
+      var trendCard = Array.from(document.querySelectorAll('.card-title'))
+        .find(function(el) { return el.textContent.includes('Trending in'); });
+      if (trendCard) {
+        var tc = trendCard.closest('.card');
+        tc.querySelectorAll('.trend-item').forEach(function(el) { el.remove(); });
+        var noData = document.createElement('div');
+        noData.style.cssText = 'font-size:12px;color:var(--faint);padding:16px 0;text-align:center;';
+        noData.textContent = 'Community trending data coming soon';
+        tc.appendChild(noData);
+      }
+
+      // Safety Intelligence — clear fake live feed items + zero counters
+      var safetyFeed = Array.from(document.querySelectorAll('.card-title'))
+        .find(function(el) { return el.textContent.includes('Live Safety Feed'); });
+      if (safetyFeed) {
+        var sc = safetyFeed.closest('.card');
+        sc.querySelectorAll('.intel-item').forEach(function(el) { el.remove(); });
+        sc.querySelectorAll('.inc-val, .inc-cell span').forEach(function(el) {
+          if (el.textContent && el.textContent !== el.parentElement.querySelector('span:first-child').textContent) el.textContent = '0';
+        });
+      }
+
+      // Fraud Intelligence — zero fake authoritative numbers + clear fake items
+      var fraudCard = Array.from(document.querySelectorAll('.card-title'))
+        .find(function(el) { return el.textContent.includes('Fraud Intelligence'); });
+      if (fraudCard) {
+        var fc = fraudCard.closest('.card');
+        fc.querySelectorAll('.intel-item').forEach(function(el) { el.remove(); });
+        fc.querySelectorAll('.mini-val').forEach(function(el) { el.textContent = '0'; });
+        var fraudNote = document.createElement('div');
+        fraudNote.style.cssText = 'font-size:11px;color:var(--faint);padding:12px 0 4px;text-align:center;';
+        fraudNote.textContent = 'No fraud reports in this window';
+        fc.appendChild(fraudNote);
+      }
+
+      // Sponsor Engagement — replace fake CTR %s with dashes (non-zero fakes are misleading)
+      var sponsorCard = Array.from(document.querySelectorAll('.card-title'))
+        .find(function(el) { return el.textContent.includes('Sponsor Engagement'); });
+      if (sponsorCard) {
+        sponsorCard.closest('.card').querySelectorAll('td:last-child').forEach(function(td) {
+          if (/\d+\.\d+%/.test(td.textContent)) td.textContent = '—';
+        });
+      }
+
+      // Housing Intel — mark unavailable mini-vals with dash rather than 0
+      var housingCard = Array.from(document.querySelectorAll('.card-title'))
+        .find(function(el) { return el.textContent.includes('Housing Intel'); });
+      if (housingCard) {
+        housingCard.closest('.card').querySelectorAll('.mini').forEach(function(mini) {
+          var lbl = (mini.querySelector('.mini-lbl')||{}).textContent||'';
+          var val = mini.querySelector('.mini-val');
+          if (!val) return;
+          var unavail = ['Occupancy Rate','Total Fan Savings','Avg. Roommates','Affiliate Revenue'];
+          if (unavail.indexOf(lbl.trim()) !== -1) val.textContent = '—';
+        });
+      }
+
+      // Ticket Matching — mark unavailable mini-vals with dash
+      var ticketCard = Array.from(document.querySelectorAll('.card-title'))
+        .find(function(el) { return el.textContent.includes('Ticket Matching'); });
+      if (ticketCard) {
+        ticketCard.closest('.card').querySelectorAll('.mini').forEach(function(mini) {
+          var lbl = (mini.querySelector('.mini-lbl')||{}).textContent||'';
+          var val = mini.querySelector('.mini-val');
+          if (!val) return;
+          var unavail = ['Successful Swaps','Savings vs StubHub','Scam Reports','Verification Rate'];
+          if (unavail.indexOf(lbl.trim()) !== -1) val.textContent = '—';
+        });
+      }
+
+      // Engagement ring inner arc — zero out (was stuck at fake dashoffset=99)
+      var ringInner = document.querySelector('.ring svg circle:nth-child(4)');
+      if (ringInner) {
+        var circInner = 2 * Math.PI * 35;
+        ringInner.setAttribute('stroke-dashoffset', circInner.toFixed(1));
       }
     }
 
