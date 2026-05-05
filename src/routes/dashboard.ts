@@ -417,18 +417,22 @@ router.get("/", requireKey, (req, res) => {
         .find(function(el) { return el.textContent.includes('Top Nations'); });
       if (nationCard) {
         var card = nationCard.closest('.card');
-        var existing = card.querySelectorAll('.nation-row-live');
-        existing.forEach(function(el) { el.remove(); });
+        // Remove static placeholder .lb-row elements
+        card.querySelectorAll('.lb-row').forEach(function(el) { el.remove(); });
+        // Remove any previously injected live rows (on refresh)
+        card.querySelectorAll('.nation-row-live').forEach(function(el) { el.remove(); });
         var total = mergedNations.reduce(function(s,n){return s+n.count;}, 0) || 1;
-        mergedNations.slice(0,8).forEach(function(n) {
+        var colors = ['var(--green)','var(--blue)','var(--amber)','var(--purple)','var(--red)','#06b6d4','#f97316','#a855f7'];
+        mergedNations.slice(0,8).forEach(function(n, i) {
           var pct = Math.round((n.count / total) * 100);
           var row = document.createElement('div');
           row.className = 'nation-row-live';
-          row.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:6px;font-size:12px;';
-          row.innerHTML = '<span style="width:80px;font-weight:600;">' + fmtNation(n.nation) + '</span>'
-            + '<div style="flex:1;height:4px;background:rgba(0,0,0,0.07);border-radius:2px;">'
-            + '<div style="width:' + pct + '%;height:100%;background:var(--green);border-radius:2px;"></div></div>'
-            + '<span style="font-family:monospace;font-size:11px;color:var(--faint);">' + n.count.toLocaleString() + '</span>';
+          row.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:7px;font-size:12px;';
+          row.innerHTML = '<span style="font-size:10px;color:var(--faint);width:14px;text-align:right;">' + (i+1) + '</span>'
+            + '<span style="flex:1;font-weight:600;letter-spacing:.5px;">' + fmtNation(n.nation) + '</span>'
+            + '<div style="width:90px;height:4px;background:rgba(0,0,0,0.07);border-radius:2px;">'
+            + '<div style="width:' + Math.max(4,pct) + '%;height:100%;background:' + colors[i] + ';border-radius:2px;"></div></div>'
+            + '<span style="font-family:monospace;font-size:11px;color:var(--faint);width:28px;text-align:right;">' + n.count.toLocaleString() + '</span>';
           card.appendChild(row);
         });
       }
