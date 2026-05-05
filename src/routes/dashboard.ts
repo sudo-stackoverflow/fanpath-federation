@@ -685,6 +685,8 @@ router.get("/", requireKey, (req, res) => {
           col.appendChild(lbl);
           barsEl.appendChild(col);
         });
+        // Scroll to the right so most recent bar is always visible
+        barsEl.scrollLeft = barsEl.scrollWidth;
       }
       // Update window label in signup chart legend
       var winLblEl = document.getElementById('fp-chart-window-lbl');
@@ -926,6 +928,9 @@ router.get("/", requireKey, (req, res) => {
       } else {
         document.querySelector('footer').parentNode.insertBefore(insBlock, document.querySelector('footer'));
       }
+      // Scroll DAU bars to the right so most recent bar is visible
+      var dauBars = insBlock.querySelector('.bars');
+      if (dauBars) dauBars.scrollLeft = dauBars.scrollWidth;
     }
 
     // GA4 custom events block
