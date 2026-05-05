@@ -35,6 +35,7 @@ export interface CustomEvents {
   signed_up: number;
   logged_in: number;
   logout: number;
+  account_deleted: number;
   otp_verified: number;
   password_reset: number;
   profile_completed: number;
@@ -98,6 +99,7 @@ export interface CustomEvents {
   squad_confirmed: number;
   squad_left: number;
   squad_message_sent: number;
+  squad_size_changed: number;
 
   // My Path
   my_path_started: number;
@@ -112,6 +114,7 @@ export interface CustomEvents {
   my_path_listing_opened: number;
   multi_city_plan_created: number;
   trip_intent_set: number;
+  mypath_breakdown_parse_failed: number;
 
   // Simulator / Draw
   simulator_opened: number;
@@ -182,7 +185,7 @@ export interface GA4Stats {
 
 const EMPTY_EVENTS: CustomEvents = {
   // Auth
-  signed_up: 0, logged_in: 0, logout: 0, otp_verified: 0, password_reset: 0,
+  signed_up: 0, logged_in: 0, logout: 0, account_deleted: 0, otp_verified: 0, password_reset: 0,
   profile_completed: 0, joined_nation: 0, switched_nation: 0,
   // Events
   event_list_viewed: 0, event_opened: 0, event_rsvp: 0, event_created: 0,
@@ -205,12 +208,13 @@ const EMPTY_EVENTS: CustomEvents = {
   // Squads
   squad_builder_opened: 0, squad_create_started: 0, squad_created: 0,
   squad_invite_accepted: 0, squad_invite_declined: 0, squad_confirmed: 0,
-  squad_left: 0, squad_message_sent: 0,
+  squad_left: 0, squad_message_sent: 0, squad_size_changed: 0,
   // My Path
   my_path_started: 0, my_path_generated: 0, my_path_saved: 0,
   my_path_team_selected: 0, my_path_group_size_selected: 0, my_path_airport_selected: 0,
   my_path_housing_clicked: 0, my_path_tickets_clicked: 0, my_path_events_clicked: 0,
   my_path_listing_opened: 0, multi_city_plan_created: 0, trip_intent_set: 0,
+  mypath_breakdown_parse_failed: 0,
   // Simulator
   simulator_opened: 0, bracket_started: 0, bracket_saved: 0, bracket_shared: 0,
   draw_opened: 0, draw_randomized: 0, draw_advanced_pot: 0,
@@ -338,6 +342,7 @@ export async function getGA4Stats(): Promise<GA4Stats> {
       signed_up:               ev("signed_up"),
       logged_in:               ev("logged_in"),
       logout:                  ev("logout"),
+      account_deleted:         ev("account_deleted"),
       otp_verified:            ev("otp_verified"),
       password_reset:          ev("password_reset"),
       profile_completed:       ev("profile_completed"),
@@ -394,6 +399,7 @@ export async function getGA4Stats(): Promise<GA4Stats> {
       squad_confirmed:         ev("squad_confirmed"),
       squad_left:              ev("squad_left"),
       squad_message_sent:      ev("squad_message_sent"),
+      squad_size_changed:      ev("squad_size_changed"),
       // My Path
       my_path_started:         ev("my_path_started"),
       my_path_generated:       ev("my_path_generated"),
@@ -407,6 +413,7 @@ export async function getGA4Stats(): Promise<GA4Stats> {
       my_path_listing_opened:  ev("my_path_listing_opened"),
       multi_city_plan_created: ev("multi_city_plan_created"),
       trip_intent_set:         ev("trip_intent_set"),
+      mypath_breakdown_parse_failed: ev("mypath_breakdown_parse_failed"),
       // Simulator
       simulator_opened:        ev("simulator_opened"),
       bracket_started:         ev("bracket_started"),

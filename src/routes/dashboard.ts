@@ -754,6 +754,7 @@ router.get("/", requireKey, (req, res) => {
               evRow('OTP Verified', ce.otp_verified),
               evRow('Password Reset', ce.password_reset),
               evRow('Logout', ce.logout),
+              evRow('Account Deleted', ce.account_deleted),
               evRow('Profile Completed', ce.profile_completed),
               evRow('Joined Nation', ce.joined_nation),
               evRow('Switched Nation', ce.switched_nation),
@@ -804,6 +805,7 @@ router.get("/", requireKey, (req, res) => {
               evRow('Listing Opened', ce.my_path_listing_opened),
               evRow('Multi-City Plan', ce.multi_city_plan_created),
               evRow('Trip Intent Set', ce.trip_intent_set),
+              evRow('Parse Failed', ce.mypath_breakdown_parse_failed),
             ]) +
             evCard('Monetization', [
               evRow('Paywall Viewed', ce.paywall_viewed),
@@ -837,6 +839,7 @@ router.get("/", requireKey, (req, res) => {
               evRow('Squad Confirmed', ce.squad_confirmed),
               evRow('Squad Left', ce.squad_left),
               evRow('Message Sent', ce.squad_message_sent),
+              evRow('Size Changed', ce.squad_size_changed),
             ]) +
             evCard('Chat & Messaging', [
               evRow('Chat Opened', ce.chat_opened),
