@@ -572,12 +572,13 @@ router.get("/", requireKey, (req, res) => {
           return s.count > signups[best].count ? i : best;
         }, 0);
         signups.forEach(function(day, i) {
-          var pct = Math.max(3, Math.round((day.count / maxSig) * 88));
+          var BAR_MAX_PX = 130; // px — bar cols are auto-height, parent aligns to baseline
+          var px = Math.max(3, Math.round((day.count / maxSig) * BAR_MAX_PX));
           var col = document.createElement('div');
           col.className = 'bar-col';
           var barDiv = document.createElement('div');
           barDiv.className = 'bar-g';
-          barDiv.style.height = pct + '%';
+          barDiv.style.height = px + 'px';
           barDiv.setAttribute('data-count', day.count + ' signups');
           barDiv.title = day.date + ': ' + day.count + ' signups';
           if (i === peakSigIdx && day.count > 0) {
@@ -747,14 +748,14 @@ router.get("/", requireKey, (req, res) => {
       }, 0) : 0;
       var DAY_CHARS = ['S','M','T','W','T','F','S'];
       var dauHtml = dau14.length
-        ? '<div class="bars" style="height:170px;margin-top:4px;">'
+        ? '<div class="bars" style="height:160px;margin-top:4px;">'
           + dau14.map(function(x, i) {
-              var h = Math.max(3, Math.round((x.users / dauMax) * 88));
+              var h = Math.max(3, Math.round((x.users / dauMax) * 130)); // px, not %
               var parts = x.date.split('-');
               var dayLetter = DAY_CHARS[new Date(Number(parts[0]), Number(parts[1])-1, Number(parts[2])).getDay()];
               var isPeak = i === dauPeakIdx;
               return '<div class="bar-col">'
-                + '<div class="bar-g" style="height:' + h + '%;" data-count="' + x.users.toLocaleString() + ' users" title="' + x.date + ': ' + x.users + ' users">'
+                + '<div class="bar-g" style="height:' + h + 'px;" data-count="' + x.users.toLocaleString() + ' users" title="' + x.date + ': ' + x.users + ' users">'
                 + (isPeak ? '<div class="bar-peak-label">' + x.users.toLocaleString() + '</div>' : '')
                 + '</div>'
                 + '<span class="bar-lbl">' + dayLetter + '</span>'
@@ -1011,11 +1012,11 @@ router.get("/", requireKey, (req, res) => {
             ]) +
           '</div>';
 
-        // Insert before the sentiment section
-        var sentimentHdrEv = Array.from(document.querySelectorAll('.section-hdr'))
-          .find(function(el) { return el.textContent.includes('SENTIMENT'); });
-        if (sentimentHdrEv) {
-          sentimentHdrEv.parentNode.insertBefore(evBlock, sentimentHdrEv);
+        // Insert before SAFETY INTELLIGENCE — i.e. right after the Intel Feed row
+        var safetyHdr = Array.from(document.querySelectorAll('.section-hdr'))
+          .find(function(el) { return el.textContent.includes('SAFETY'); });
+        if (safetyHdr) {
+          safetyHdr.parentNode.insertBefore(evBlock, safetyHdr);
         } else {
           var footer = document.querySelector('footer');
           if (footer) footer.parentNode.insertBefore(evBlock, footer);

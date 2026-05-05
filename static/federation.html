@@ -510,11 +510,11 @@
     /* ── BAR CHART CSS ────────────────────────────────────────── */
     .bars {
       display: flex;
-      align-items: flex-end;
+      align-items: flex-end;   /* all bars share one bottom baseline */
       gap: 4px;
-      height: 188px;
-      overflow: visible;
-      padding-top: 24px; /* room for peak label */
+      height: 160px;
+      overflow: visible;       /* peak label can overflow upward */
+      padding-top: 0;
     }
 
     .bar-col {
@@ -523,8 +523,8 @@
       flex-direction: column;
       align-items: center;
       gap: 4px;
-      height: 100%;
-      justify-content: flex-end;
+      /* NO height:100% — cols size to their bar+label content */
+      /* align-items:flex-end on parent anchors them to the baseline */
       position: relative;
     }
 
