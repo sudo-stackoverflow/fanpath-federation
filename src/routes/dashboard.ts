@@ -748,7 +748,7 @@ router.get("/", requireKey, (req, res) => {
       }, 0) : 0;
       var DAY_CHARS = ['S','M','T','W','T','F','S'];
       var dauHtml = dau14.length
-        ? '<div class="bars" style="height:160px;margin-top:4px;">'
+        ? '<div class="bars" style="flex:1;height:auto;min-height:120px;margin-top:4px;">'
           + dau14.map(function(x, i) {
               var h = Math.max(3, Math.round((x.users / dauMax) * 130)); // px, not %
               var parts = x.date.split('-');
@@ -801,7 +801,7 @@ router.get("/", requireKey, (req, res) => {
           '</div>' +
 
           // Card 3: DAU chart
-          '<div class="card"><div class="card-head"><span class="card-title">Daily Active Users · 14d</span><span style="font-size:10px;color:var(--faint);">GA4</span></div>' +
+          '<div class="card" style="display:flex;flex-direction:column;"><div class="card-head"><span class="card-title">Daily Active Users · 14d</span><span style="font-size:10px;color:var(--faint);">GA4</span></div>' +
           dauHtml +
           (d.ga4 && d.ga4.available
             ? '<div class="chart-legend"><div class="leg-item"><div class="leg-dot" style="background:var(--green)"></div>Active Users (GA4)</div>'
