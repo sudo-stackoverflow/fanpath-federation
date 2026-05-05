@@ -26,28 +26,42 @@ router.get("/", requireKey, (req, res) => {
   var currentWindow = '7d';
 
   // ── Sidebar nav — index-based mapping (matches sidebar order exactly) ────────
-  // Each entry: [search string, selector scope, action]
-  // scope: 'card' = .card-title, 'section' = .section-hdr, 'top'/'toast' = special
+  // Items must be in the EXACT same order as .sidebar-item elements in the HTML.
+  // scope: 'card' = search .card-title, 'section' = search .section-hdr
   var SIDEBAR_MAP = [
-    {s: null,                             t: 'top'},
-    {s: 'Fan Demographics',               t: 'card'},
-    {s: 'Fans by Host City',              t: 'card'},
-    {s: 'Trending in',                    t: 'card'},
-    {s: 'Official Intel Feed',            t: 'card'},
-    {s: 'Match Fan Demand',               t: 'card'},
-    {s: 'Housing Intel',                  t: 'card'},
-    {s: 'Ticket Matching',                t: 'card'},
-    {s: 'Inter-City Travel',              t: 'card'},
-    {s: 'Sponsor Engagement',             t: 'card'},
-    {s: 'Sponsor & Partner ROI',          t: 'card'},
-    {s: 'SAFETY INTELLIGENCE',            t: 'section'},
-    {s: 'FAN SENTIMENT',                  t: 'section'},
-    {s: 'PREDICTIVE',                     t: 'section'},
-    {s: 'FAN CRM',                        t: 'section'},
-    {s: 'BLACK MARKET',                   t: 'section'},
-    {s: 'ECONOMIC IMPACT',                t: 'section'},
-    {s: null,                             t: 'toast', m: 'Configuration panel coming soon'},
-    {s: null,                             t: 'toast', m: 'API key: Contact federation@usefanpath.com'},
+    // OVERVIEW (0–4)
+    {s: null,                             t: 'top'},                                          // 0  Dashboard
+    {s: 'Top Nations on Platform',        t: 'card'},                                         // 1  Top Nations
+    {s: 'Daily Fan Signups',              t: 'card'},                                         // 2  Fan Signups
+    {s: 'Fan Demographics',               t: 'card'},                                         // 3  Fan Demographics
+    {s: 'Fans by Host City',              t: 'card'},                                         // 4  City Intelligence
+    // ANALYTICS (5–7)
+    {s: 'PLATFORM INTELLIGENCE',          t: 'section'},                                      // 5  Platform Analytics
+    {s: 'APP EVENT ANALYTICS',            t: 'section'},                                      // 6  App Events
+    {s: 'GOOGLE ANALYTICS 4',             t: 'section'},                                      // 7  GA4 Overview
+    // ENGAGEMENT (8–11)
+    {s: 'Trending in',                    t: 'card'},                                         // 8  Community Activity
+    {s: 'Official Intel Feed',            t: 'card'},                                         // 9  Intel Feed
+    {s: 'Live Intel',                     t: 'card'},                                         // 10 Live Intel
+    {s: 'Match Fan Demand',               t: 'card'},                                         // 11 Events & Meetups
+    // COORDINATION (12–14)
+    {s: 'Housing Intel',                  t: 'card'},                                         // 12 Housing Analytics
+    {s: 'Ticket Matching',                t: 'card'},                                         // 13 Ticket Matching
+    {s: 'Inter-City Travel',              t: 'card'},                                         // 14 Travel Patterns
+    // REVENUE (15–16)
+    {s: 'Sponsor Engagement',             t: 'card'},                                         // 15 Sponsor Metrics
+    {s: 'Sponsor & Partner ROI',          t: 'card'},                                         // 16 Revenue Reports
+    // INTELLIGENCE (17–23)
+    {s: 'SAFETY INTELLIGENCE',            t: 'section'},                                      // 17 Safety Layer
+    {s: 'FAN SENTIMENT',                  t: 'section'},                                      // 18 Fan Sentiment
+    {s: 'PREDICTIVE',                     t: 'section'},                                      // 19 Forward Forecast
+    {s: 'FAN CRM',                        t: 'section'},                                      // 20 Fan CRM
+    {s: 'BLACK MARKET',                   t: 'section'},                                      // 21 Black Market Intel
+    {s: 'Fraud Intelligence',             t: 'card'},                                         // 22 Fraud Intel
+    {s: 'ECONOMIC IMPACT',                t: 'section'},                                      // 23 Economic Impact
+    // SETTINGS (24–25)
+    {s: null,                             t: 'toast', m: 'Configuration panel coming soon'},  // 24 Configuration
+    {s: null,                             t: 'toast', m: 'API key: Contact federation@usefanpath.com'}, // 25 API Access
   ];
 
   function findSection(str, scope) {
