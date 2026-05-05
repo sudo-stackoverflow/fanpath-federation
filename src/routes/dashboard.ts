@@ -406,11 +406,16 @@ router.get("/", requireKey, (req, res) => {
   };
   function pageName(raw) {
     if (!raw) return 'Unknown';
-    var norm = raw.split('?')[0].replace(/\/$/, '') || '/';
+    // Strip query string, remove trailing slash — no regex with \/ (template literal drops backslash)
+    var norm = raw.split('?')[0];
+    if (norm.length > 1 && norm.charAt(norm.length - 1) === '/') norm = norm.slice(0, -1);
+    if (!norm) norm = '/';
     if (PAGE_NAMES[norm]) return PAGE_NAMES[norm];
-    if (/^\/profile\//.test(norm)) return 'Profile: ' + norm.split('/')[2];
-    var slug = norm.replace(/^\//, '').split('/')[0];
-    return slug ? slug.replace(/-/g,' ').replace(/\b\w/g,function(c){return c.toUpperCase();}) : 'Home';
+    var parts = norm.split('/');            // ['', 'profile', 'shubhoum'] or ['', 'the-club']
+    if (parts[1] === 'profile' && parts[2]) return 'Profile: ' + parts[2];
+    var slug = parts[1] || '';
+    if (!slug) return 'Home';
+    return slug.split('-').map(function(w) { return w.charAt(0).toUpperCase() + w.slice(1); }).join(' ');
   }
   // Deduplicate topNations by normalising case, merge counts
   function mergeNations(nations) {
