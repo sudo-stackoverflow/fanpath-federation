@@ -246,6 +246,37 @@ router.get("/", requireKey, (req, res) => {
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────────
+  var CITY_NAMES = {
+    'atlanta':           'Atlanta',
+    'boston':            'Boston',
+    'dallas':            'Dallas',
+    'guadalajara':       'Guadalajara',
+    'houston':           'Houston',
+    'kansas-city':       'Kansas City',
+    'los-angeles':       'Los Angeles',
+    'mexico-city':       'Mexico City',
+    'miami':             'Miami',
+    'monterrey':         'Monterrey',
+    'new-york':          'New York',
+    'philadelphia':      'Philadelphia',
+    'san-francisco':     'San Francisco',
+    'seattle':           'Seattle',
+    'toronto':           'Toronto',
+    'vancouver':         'Vancouver',
+    // common abbreviations / alternate slugs
+    'nyc':               'New York',
+    'la':                'Los Angeles',
+    'sf':                'San Francisco',
+    'mx-city':           'Mexico City',
+    'kc':                'Kansas City',
+    'philly':            'Philadelphia',
+  };
+  function cityName(slug) {
+    if (!slug) return '';
+    var s = String(slug).toLowerCase().trim();
+    return CITY_NAMES[s] || s.replace(/-/g,' ').replace(/\b\w/g, function(c){return c.toUpperCase();});
+  }
+  // Keep titleCase for non-city generic use
   function titleCase(str) {
     return str.replace(/-/g,' ').replace(/\b\w/g, function(c){return c.toUpperCase();});
   }
@@ -367,7 +398,7 @@ router.get("/", requireKey, (req, res) => {
         var cnt   = row.querySelector('.city-cnt');
         var pctEl = row.querySelector('.city-pct');
         var fill  = row.querySelector('.bar-fill');
-        if (nm)    nm.textContent    = titleCase(city.city);
+        if (nm)    nm.textContent    = cityName(city.city);
         if (cnt)   cnt.textContent   = city.count.toLocaleString();
         if (pctEl) pctEl.textContent = pct + '%';
         if (fill)  fill.style.width  = Math.max(4, pct) + '%';
@@ -438,7 +469,7 @@ router.get("/", requireKey, (req, res) => {
       var evCityHtml = (d.eventsByCity||[]).slice(0,6).map(function(c) {
         var pct = Math.round((c.count / evCityMax) * 100);
         return '<div style="display:flex;align-items:center;gap:8px;margin-top:6px;font-size:12px;">'
-          + '<span style="flex:1;font-weight:500;">' + titleCase(c.city) + '</span>'
+          + '<span style="flex:1;font-weight:500;">' + cityName(c.city) + '</span>'
           + '<div style="width:80px;height:4px;background:rgba(0,0,0,0.07);border-radius:2px;">'
           + '<div style="width:' + pct + '%;height:100%;background:var(--blue);border-radius:2px;"></div></div>'
           + '<span style="font-family:monospace;font-size:11px;color:var(--faint);width:24px;text-align:right;">' + c.count + '</span>'
@@ -522,7 +553,7 @@ router.get("/", requireKey, (req, res) => {
               var pct = Math.round((r.rsvps / rsvpMax) * 100);
               return '<div style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;">'
                 + '<div style="flex:1;">'
-                + '<div style="font-weight:600;margin-bottom:3px;">' + titleCase(r.city) + '</div>'
+                + '<div style="font-weight:600;margin-bottom:3px;">' + cityName(r.city) + '</div>'
                 + '<div style="height:4px;background:rgba(0,0,0,0.07);border-radius:2px;">'
                 + '<div style="width:' + pct + '%;height:100%;background:var(--green);border-radius:2px;"></div></div>'
                 + '</div>'
