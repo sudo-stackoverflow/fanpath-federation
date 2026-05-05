@@ -24,6 +24,7 @@ router.get("/", requireKey, (req, res) => {
   var KEY = ${JSON.stringify(key)};
   var FANPATH = 'https://www.usefanpath.com';
   var currentWindow = '7d';
+  var currentNation = 'arg'; // default — overridden by dropdown selection
 
   // ── Sidebar nav — index-based mapping (matches sidebar order exactly) ────────
   // Items must be in the EXACT same order as .sidebar-item elements in the HTML.
@@ -203,29 +204,55 @@ router.get("/", requireKey, (req, res) => {
   }
 
   // ── Nation selector dropdown ─────────────────────────────────────────────────
+  // ── Nation selector — updates label + reloads intel filtered by nation ────────
+  function updateNationLabel(nation) {
+    var sel = document.querySelector('.fed-selector');
+    if (!sel) return;
+    var info = NATION_MAP[nation];
+    var flag = info ? info[0] : '🌍';
+    var name = info ? info[1] : nation.toUpperCase();
+    sel.textContent = flag + '  ' + name + ' ▾';
+  }
+
   var fedSel = document.querySelector('.fed-selector');
   if (fedSel) {
     fedSel.style.cursor = 'pointer';
     fedSel.style.userSelect = 'none';
+    updateNationLabel(currentNation); // set initial label
     fedSel.addEventListener('click', function(e) {
       e.stopPropagation();
       var existing = document.getElementById('fp-nation-dd');
       if (existing) { existing.remove(); return; }
       var dd = document.createElement('div');
       dd.id = 'fp-nation-dd';
-      dd.style.cssText = 'position:fixed;background:#fff;border:1px solid #e5e5e5;border-radius:10px;padding:6px 0;min-width:200px;box-shadow:0 8px 24px rgba(0,0,0,0.12);z-index:9999;font-size:13px;font-family:DM Sans,sans-serif;';
+      dd.style.cssText = 'position:fixed;background:#fff;border:1px solid #e5e5e5;border-radius:10px;padding:6px 0;min-width:220px;box-shadow:0 8px 24px rgba(0,0,0,0.12);z-index:9999;font-size:13px;font-family:DM Sans,sans-serif;';
       var rawNations = _lastData && _lastData.topNations ? _lastData.topNations : [];
       var nations = mergeNations(rawNations).slice(0,10);
-      var header = '<div style="padding:6px 14px 8px;color:#aaa;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;border-bottom:1px solid #f0f0f0;margin-bottom:4px;">TOP NATIONS</div>';
+      var header = '<div style="padding:6px 14px 8px;color:#aaa;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;border-bottom:1px solid #f0f0f0;margin-bottom:4px;">SELECT NATION</div>';
       var rows = nations.length
         ? nations.map(function(n) {
-            return '<div style="padding:7px 14px;cursor:default;display:flex;justify-content:space-between;align-items:center;">'
-              + '<span style="font-weight:500;">' + fmtNation(n.nation) + '</span>'
+            var isActive = n.nation === currentNation;
+            return '<div data-nation-slug="' + n.nation + '" style="padding:7px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;'
+              + (isActive ? 'background:#f5fff8;' : '')
+              + '">'
+              + '<span style="font-weight:' + (isActive ? '700' : '500') + ';color:' + (isActive ? 'var(--green,#22c55e)' : 'inherit') + ';">' + fmtNation(n.nation) + '</span>'
               + '<span style="font-size:11px;color:#888;font-family:monospace;">' + Number(n.count).toLocaleString() + ' fans</span></div>';
           }).join('')
         : '<div style="padding:10px 14px;color:#aaa;">Loading…</div>';
-      var footer = '<div style="padding:8px 14px;border-top:1px solid #f0f0f0;margin-top:4px;font-size:11px;color:#aaa;text-align:center;">Global dashboard · all nations</div>';
-      dd.innerHTML = header + rows + footer;
+      dd.innerHTML = header + rows;
+      // Click handler for each nation row
+      dd.querySelectorAll('[data-nation-slug]').forEach(function(row) {
+        row.addEventListener('click', function(ev) {
+          ev.stopPropagation();
+          var slug = row.getAttribute('data-nation-slug');
+          dd.remove();
+          if (slug && slug !== currentNation) {
+            currentNation = slug;
+            updateNationLabel(slug);
+            loadData(currentWindow);
+          }
+        });
+      });
       var rect = fedSel.getBoundingClientRect();
       dd.style.top = (rect.bottom + 6) + 'px';
       dd.style.right = (window.innerWidth - rect.right) + 'px';
@@ -1291,7 +1318,7 @@ router.get("/", requireKey, (req, res) => {
   function loadData(win) {
     win = win || currentWindow;
     setLoading(true);
-    fetch('/api/stats?key=' + encodeURIComponent(KEY) + '&window=' + win)
+    fetch('/api/stats?key=' + encodeURIComponent(KEY) + '&window=' + win + '&nation=' + encodeURIComponent(currentNation))
       .then(function(r) { return r.json(); })
       .then(function(d) { setLoading(false); render(d); })
       .catch(function(e) {

@@ -12,9 +12,11 @@ const FEDERATION_KEY = process.env.FEDERATION_KEY ?? "";
 router.get("/api/stats", requireKey, async (req, res) => {
   try {
     const window = (req.query.window as string) || "7d";
+    const nation  = (req.query.nation  as string) || "";
+    const nationParam = nation ? `&nation=${encodeURIComponent(nation)}` : "";
     const [dbRes, ga4] = await Promise.all([
       fetch(
-        `${FANPATH_API_URL}/api/federation/stats?key=${encodeURIComponent(FEDERATION_KEY)}&window=${window}`
+        `${FANPATH_API_URL}/api/federation/stats?key=${encodeURIComponent(FEDERATION_KEY)}&window=${window}${nationParam}`
       ),
       getGA4Stats(),
     ]);
