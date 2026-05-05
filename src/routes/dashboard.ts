@@ -384,6 +384,76 @@ router.get("/", requireKey, (req, res) => {
     if (e) return e[0] + ' ' + e[1];
     return code.toUpperCase();
   }
+
+  // Team slug (full name) → flag emoji, for MyPath Top Teams card
+  var TEAM_FLAGS = {
+    'argentina':          '🇦🇷',
+    'mexico':             '🇲🇽',
+    'germany':            '🇩🇪',
+    'brazil':             '🇧🇷',
+    'usa':                '🇺🇸',
+    'united states':      '🇺🇸',
+    'portugal':           '🇵🇹',
+    'panama':             '🇵🇦',
+    'france':             '🇫🇷',
+    'spain':              '🇪🇸',
+    'england':            '🏴',
+    'netherlands':        '🇳🇱',
+    'italy':              '🇮🇹',
+    'colombia':           '🇨🇴',
+    'uruguay':            '🇺🇾',
+    'canada':             '🇨🇦',
+    'morocco':            '🇲🇦',
+    'japan':              '🇯🇵',
+    'south korea':        '🇰🇷',
+    'korea':              '🇰🇷',
+    'australia':          '🇦🇺',
+    'senegal':            '🇸🇳',
+    'nigeria':            '🇳🇬',
+    'ghana':              '🇬🇭',
+    'ecuador':            '🇪🇨',
+    'chile':              '🇨🇱',
+    'costa rica':         '🇨🇷',
+    'peru':               '🇵🇪',
+    'venezuela':          '🇻🇪',
+    'paraguay':           '🇵🇾',
+    'bolivia':            '🇧🇴',
+    'honduras':           '🇭🇳',
+    'el salvador':        '🇸🇻',
+    'jamaica':            '🇯🇲',
+    'trinidad':           '🇹🇹',
+    'trinidad and tobago':'🇹🇹',
+    'belgium':            '🇧🇪',
+    'croatia':            '🇭🇷',
+    'switzerland':        '🇨🇭',
+    'denmark':            '🇩🇰',
+    'austria':            '🇦🇹',
+    'sweden':             '🇸🇪',
+    'norway':             '🇳🇴',
+    'scotland':           '🏴',
+    'wales':              '🏴󠁧󠁢󠁷󠁬󠁳󠁿',
+    'poland':             '🇵🇱',
+    'ukraine':            '🇺🇦',
+    'serbia':             '🇷🇸',
+    'turkey':             '🇹🇷',
+    'greece':             '🇬🇷',
+    'iran':               '🇮🇷',
+    'saudi arabia':       '🇸🇦',
+    'iraq':               '🇮🇶',
+    'qatar':              '🇶🇦',
+    'egypt':              '🇪🇬',
+    'cameroon':           '🇨🇲',
+    'ivory coast':        '🇨🇮',
+    'mali':               '🇲🇱',
+    'south africa':       '🇿🇦',
+    'new zealand':        '🇳🇿',
+    'indonesia':          '🇮🇩',
+    'china':              '🇨🇳',
+  };
+  function teamFlag(slug) {
+    return TEAM_FLAGS[(slug||'').toLowerCase()] || '';
+  }
+
   // Page slug → readable label for Top Pages card
   var PAGE_NAMES = {
     '/':             'Home',
@@ -635,9 +705,11 @@ router.get("/", requireKey, (req, res) => {
         var teamMax = (d.topMyPathTeams[0]||{}).count || 1;
         var pct = Math.round((t.count / teamMax) * 100);
         var colors = ['var(--green)','var(--blue)','var(--amber)','var(--purple)','var(--red)','var(--green)','var(--blue)','var(--amber)'];
+        var flag = teamFlag(t.team);
         return '<div style="display:flex;align-items:center;gap:8px;margin-top:7px;font-size:12px;">'
           + '<span style="font-size:10px;color:var(--faint);width:14px;text-align:right;">' + (i+1) + '</span>'
-          + '<span style="flex:1;font-weight:600;text-transform:uppercase;letter-spacing:.5px;">' + titleCase(t.team) + '</span>'
+          + '<span style="font-size:15px;line-height:1;">' + flag + '</span>'
+          + '<span style="flex:1;font-weight:600;">' + titleCase(t.team) + '</span>'
           + '<div style="width:80px;height:4px;background:rgba(0,0,0,0.07);border-radius:2px;">'
           + '<div style="width:' + pct + '%;height:100%;background:' + colors[i] + ';border-radius:2px;"></div></div>'
           + '<span style="font-family:monospace;font-size:11px;color:var(--faint);width:28px;text-align:right;">' + t.count + '</span>'
