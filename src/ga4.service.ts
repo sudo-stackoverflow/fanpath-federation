@@ -607,10 +607,10 @@ export interface DailySnapshotGA4 {
   traffic_sources_yesterday:    TrafficSource[];
   // GA4-native retention (returningUsers / activeUsers) across windows
   retention: {
-    yesterday_pct:  number;
-    day_before_pct: number;
-    week_pct:       number;
-    month_pct:      number;
+    yesterday:  { pct: number; returning: number; active: number };
+    day_before: { pct: number; returning: number; active: number };
+    week:       { pct: number; returning: number; active: number };
+    month:      { pct: number; returning: number; active: number };
   };
   // Debug — shows what GA4 actually returned (remove once confirmed working)
   _ga4_debug?: {
@@ -632,7 +632,12 @@ function emptyDailyGA4(): DailySnapshotGA4 {
     bounce_rate:                  { yesterday_pct: 0, day_before_pct: 0 },
     avg_session_duration_seconds: { yesterday: 0, day_before: 0 },
     traffic_sources_yesterday:    [],
-    retention: { yesterday_pct: 0, day_before_pct: 0, week_pct: 0, month_pct: 0 },
+    retention: {
+      yesterday:  { pct: 0, returning: 0, active: 0 },
+      day_before: { pct: 0, returning: 0, active: 0 },
+      week:       { pct: 0, returning: 0, active: 0 },
+      month:      { pct: 0, returning: 0, active: 0 },
+    },
   };
 }
 
@@ -707,12 +712,13 @@ export async function getDailySnapshotGA4(): Promise<DailySnapshotGA4> {
 
     // retention = (activeUsers - newUsers) / activeUsers — avoids returningUsers metric
     // which is not available on all GA4 property types
-    function retPct(res: any): number {
-      const r        = res[0]?.rows?.[0];
-      const active   = n(r?.metricValues?.[0]?.value);
-      const newU     = n(r?.metricValues?.[1]?.value);
-      const returning = Math.max(0, active - newU);
-      return active > 0 ? parseFloat((returning / active * 100).toFixed(1)) : 0;
+    function retData(res: any): { pct: number; returning: number; active: number } {
+      const r         = res[0]?.rows?.[0];
+      const active    = n(r?.metricValues?.[0]?.value);
+      const newU      = n(r?.metricValues?.[1]?.value);
+      const returning = Math.max(0, Math.round(active - newU));
+      const pct       = active > 0 ? parseFloat((returning / active * 100).toFixed(1)) : 0;
+      return { pct, returning, active: Math.round(active) };
     }
 
     const mauRaw   = n(mau30[0]?.rows?.[0]?.metricValues?.[0]?.value);
@@ -734,10 +740,10 @@ export async function getDailySnapshotGA4(): Promise<DailySnapshotGA4> {
       },
       traffic_sources_yesterday: trafficSources,
       retention: {
-        yesterday_pct:  retPct(yest),
-        day_before_pct: retPct(dayBefore),
-        week_pct:       retPct(retWeek),
-        month_pct:      retPct(retMonth),
+        yesterday:  retData(yest),
+        day_before: retData(dayBefore),
+        week:       retData(retWeek),
+        month:      retData(retMonth),
       },
       _ga4_debug: {
         property_id:   PROPERTY_ID,

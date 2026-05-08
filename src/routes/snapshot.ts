@@ -88,12 +88,7 @@ router.get("/api/daily-snapshot", requireKey, async (req, res) => {
       revenue: db.revenue ?? { yesterday_usd: 0, day_before_usd: 0 },
 
       // Retention: returningUsers / activeUsers from GA4 (default metric, no config needed)
-      retention: {
-        yesterday_pct:  ga4.retention.yesterday_pct,
-        day_before_pct: ga4.retention.day_before_pct,
-        week_pct:       ga4.retention.week_pct,
-        month_pct:      ga4.retention.month_pct,
-      },
+      retention: ga4.retention,
 
       // Debug — remove once confirmed working
       _db_status: dbStatusCode,
