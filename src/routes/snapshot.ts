@@ -21,15 +21,24 @@ const FEDERATION_KEY = process.env.FEDERATION_KEY ?? "";
 
 router.get("/api/daily-snapshot", requireKey, async (req, res) => {
   try {
-    const [ga4, dbRes] = await Promise.all([
+    const dbUrl = `${FANPATH_API_URL}/api/snapshot/daily?key=${encodeURIComponent(FEDERATION_KEY)}`;
+    const [ga4, dbFetch] = await Promise.all([
       getDailySnapshotGA4(),
-      fetch(
-        `${FANPATH_API_URL}/api/snapshot/daily?key=${encodeURIComponent(FEDERATION_KEY)}`
-      ).then(r => r.json()).catch(() => null),
+      fetch(dbUrl).catch((e: any) => { console.error("[daily-snapshot] fetch threw:", e.message); return null; }),
     ]);
 
-    // DB metrics (from fanpath server) — fall back to zeros if unavailable
-    const db: Record<string, any> = dbRes ?? {};
+    let db: Record<string, any> = {};
+    let dbStatusCode: number | string = "fetch_failed";
+    if (dbFetch) {
+      dbStatusCode = dbFetch.status;
+      if (dbFetch.ok) {
+        db = await dbFetch.json();
+      } else {
+        const errText = await dbFetch.text().catch(() => "(unreadable)");
+        console.error(`[daily-snapshot] fanpath returned ${dbFetch.status} — ${errText}`);
+        console.error(`[daily-snapshot] URL: ${dbUrl}`);
+      }
+    }
 
     // Compute as_of timestamp (ISO) and date string (yesterday in UTC)
     const now = new Date();
@@ -77,6 +86,10 @@ router.get("/api/daily-snapshot", requireKey, async (req, res) => {
 
       // Retention cohorts (DB)
       retention: db.retention ?? { day_1_pct: 0, day_7_pct: 0, day_30_pct: 0 },
+
+      // Debug — remove once confirmed working
+      _db_status: dbStatusCode,
+      _db_url: dbUrl.replace(FEDERATION_KEY, "***"),
     });
   } catch (err: any) {
     console.error("[daily-snapshot]", err);
