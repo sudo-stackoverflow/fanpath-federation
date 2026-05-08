@@ -664,13 +664,19 @@ export async function getDailySnapshotGA4(): Promise<DailySnapshotGA4> {
     ];
 
     // Use separate single-dateRange calls — avoids any ambiguity in multi-range row ordering
+    const safe = async (label: string, req: any) => {
+      try {
+        return await client.runReport(req);
+      } catch (e: any) {
+        console.error(`[GA4] daily snapshot — "${label}" failed:`, e?.message ?? e);
+        return [{ rows: [] }];
+      }
+    };
+
     const [yest, dayBefore, sources, mau30, retWeek, retMonth] = await Promise.all([
-      // Yesterday
-      client.runReport({ property, dateRanges: [{ startDate: "yesterday", endDate: "yesterday" }], metrics: METRICS_OVERVIEW }),
-      // Day before yesterday
-      client.runReport({ property, dateRanges: [{ startDate: "2daysAgo",  endDate: "2daysAgo"  }], metrics: METRICS_OVERVIEW }),
-      // Traffic sources — yesterday
-      client.runReport({
+      safe("yest",      { property, dateRanges: [{ startDate: "yesterday", endDate: "yesterday" }], metrics: METRICS_OVERVIEW }),
+      safe("dayBefore", { property, dateRanges: [{ startDate: "2daysAgo",  endDate: "2daysAgo"  }], metrics: METRICS_OVERVIEW }),
+      safe("sources",   {
         property,
         dateRanges: [{ startDate: "yesterday", endDate: "yesterday" }],
         dimensions: [{ name: "sessionDefaultChannelGrouping" }],
@@ -678,12 +684,9 @@ export async function getDailySnapshotGA4(): Promise<DailySnapshotGA4> {
         orderBys:   [{ metric: { metricName: "sessions" }, desc: true }],
         limit: 10,
       }),
-      // MAU — 30 days
-      client.runReport({ property, dateRanges: [{ startDate: "29daysAgo", endDate: "today" }], metrics: [{ name: "activeUsers" }] }),
-      // Retention — week (6 days ago to today)
-      client.runReport({ property, dateRanges: [{ startDate: "6daysAgo", endDate: "today" }], metrics: [{ name: "activeUsers" }, { name: "returningUsers" }] }),
-      // Retention — month (29 days ago to today)
-      client.runReport({ property, dateRanges: [{ startDate: "29daysAgo", endDate: "today" }], metrics: [{ name: "activeUsers" }, { name: "returningUsers" }] }),
+      safe("mau30",    { property, dateRanges: [{ startDate: "29daysAgo", endDate: "today" }], metrics: [{ name: "activeUsers" }] }),
+      safe("retWeek",  { property, dateRanges: [{ startDate: "6daysAgo",  endDate: "today" }], metrics: [{ name: "activeUsers" }, { name: "newUsers" }] }),
+      safe("retMonth", { property, dateRanges: [{ startDate: "29daysAgo", endDate: "today" }], metrics: [{ name: "activeUsers" }, { name: "newUsers" }] }),
     ]);
 
     const mv0 = (res: any) => res[0]?.rows?.[0]?.metricValues ?? [];
@@ -702,10 +705,13 @@ export async function getDailySnapshotGA4(): Promise<DailySnapshotGA4> {
       };
     });
 
+    // retention = (activeUsers - newUsers) / activeUsers — avoids returningUsers metric
+    // which is not available on all GA4 property types
     function retPct(res: any): number {
-      const r = res[0]?.rows?.[0];
-      const active    = n(r?.metricValues?.[0]?.value);
-      const returning = n(r?.metricValues?.[1]?.value);
+      const r        = res[0]?.rows?.[0];
+      const active   = n(r?.metricValues?.[0]?.value);
+      const newU     = n(r?.metricValues?.[1]?.value);
+      const returning = Math.max(0, active - newU);
       return active > 0 ? parseFloat((returning / active * 100).toFixed(1)) : 0;
     }
 
