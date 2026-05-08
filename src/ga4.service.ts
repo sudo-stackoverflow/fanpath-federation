@@ -541,3 +541,142 @@ export async function getGA4Stats(win: Window = "7d"): Promise<GA4Stats> {
     return { ...emptyStats(), window: win };
   }
 }
+
+// ── Daily snapshot cache (separate from the windowed cache) ──────────────────
+let _dailySnapshotCache: { data: DailySnapshotGA4; ts: number } | null = null;
+
+export interface TrafficSource {
+  source:   string;
+  sessions: number;
+  pct:      number;
+}
+
+export interface DailySnapshotGA4 {
+  dau:                        { yesterday: number; day_before: number };
+  mau:                        number;
+  sessions:                   { yesterday: number; day_before: number };
+  page_views:                 { yesterday: number; day_before: number };
+  bounce_rate:                { yesterday_pct: number; day_before_pct: number };
+  avg_session_duration_seconds: { yesterday: number; day_before: number };
+  traffic_sources_yesterday:  TrafficSource[];
+}
+
+function emptyDailyGA4(): DailySnapshotGA4 {
+  return {
+    dau:                        { yesterday: 0, day_before: 0 },
+    mau:                        0,
+    sessions:                   { yesterday: 0, day_before: 0 },
+    page_views:                 { yesterday: 0, day_before: 0 },
+    bounce_rate:                { yesterday_pct: 0, day_before_pct: 0 },
+    avg_session_duration_seconds: { yesterday: 0, day_before: 0 },
+    traffic_sources_yesterday:  [],
+  };
+}
+
+/**
+ * Fetches GA4 metrics shaped for the /api/daily-snapshot federation endpoint.
+ * Returns yesterday vs day-before comparisons for all key metrics.
+ * Results are cached for 10 minutes (stale data is fine for a daily digest).
+ */
+export async function getDailySnapshotGA4(): Promise<DailySnapshotGA4> {
+  const CACHE_TTL = 10 * 60 * 1000;
+  if (_dailySnapshotCache && Date.now() - _dailySnapshotCache.ts < CACHE_TTL) {
+    return _dailySnapshotCache.data;
+  }
+
+  const client = getClient();
+  if (!client) return emptyDailyGA4();
+
+  try {
+    const property = `properties/${PROPERTY_ID}`;
+
+    // Two date ranges in one runReport call: yesterday and day_before
+    const twoDay = {
+      dateRanges: [
+        { startDate: "yesterday", endDate: "yesterday", name: "yesterday"   },
+        { startDate: "2daysAgo",  endDate: "2daysAgo",  name: "day_before"  },
+      ],
+    };
+
+    const [overview, sources, mau30] = await Promise.all([
+      // Overview: activeUsers, sessions, screenPageViews, bounceRate, avgSessionDuration
+      client.runReport({
+        property,
+        ...twoDay,
+        metrics: [
+          { name: "activeUsers"          },
+          { name: "sessions"             },
+          { name: "screenPageViews"      },
+          { name: "bounceRate"           },
+          { name: "averageSessionDuration" },
+        ],
+      }),
+      // Traffic sources — yesterday only
+      client.runReport({
+        property,
+        dateRanges: [{ startDate: "yesterday", endDate: "yesterday" }],
+        dimensions: [{ name: "sessionDefaultChannelGrouping" }],
+        metrics:    [{ name: "sessions" }],
+        orderBys:   [{ metric: { metricName: "sessions" }, desc: true }],
+        limit: 10,
+      }),
+      // MAU — active users over the past 30 days
+      client.runReport({
+        property,
+        dateRanges: [{ startDate: "29daysAgo", endDate: "today" }],
+        metrics:    [{ name: "activeUsers" }],
+      }),
+    ]);
+
+    // overview returns two rows when two dateRanges are used — row index matches range index
+    const row0 = overview[0]?.rows?.[0]?.metricValues ?? []; // yesterday
+    const row1 = overview[0]?.rows?.[1]?.metricValues ?? []; // day_before
+
+    const totalSourceSessions = (sources[0]?.rows ?? []).reduce(
+      (s: number, r: any) => s + n(r.metricValues?.[0]?.value),
+      0
+    );
+
+    const trafficSources: TrafficSource[] = (sources[0]?.rows ?? []).map((r: any) => {
+      const sess = n(r.metricValues?.[0]?.value);
+      return {
+        source:   r.dimensionValues?.[0]?.value ?? "unknown",
+        sessions: sess,
+        pct:      totalSourceSessions > 0
+          ? parseFloat(((sess / totalSourceSessions) * 100).toFixed(1))
+          : 0,
+      };
+    });
+
+    const data: DailySnapshotGA4 = {
+      dau: {
+        yesterday:  n(row0[0]?.value),
+        day_before: n(row1[0]?.value),
+      },
+      mau: n(mau30[0]?.rows?.[0]?.metricValues?.[0]?.value),
+      sessions: {
+        yesterday:  n(row0[1]?.value),
+        day_before: n(row1[1]?.value),
+      },
+      page_views: {
+        yesterday:  n(row0[2]?.value),
+        day_before: n(row1[2]?.value),
+      },
+      bounce_rate: {
+        yesterday_pct:  parseFloat((n(row0[3]?.value) * 100).toFixed(2)),
+        day_before_pct: parseFloat((n(row1[3]?.value) * 100).toFixed(2)),
+      },
+      avg_session_duration_seconds: {
+        yesterday:  Math.round(n(row0[4]?.value)),
+        day_before: Math.round(n(row1[4]?.value)),
+      },
+      traffic_sources_yesterday: trafficSources,
+    };
+
+    _dailySnapshotCache = { data, ts: Date.now() };
+    return data;
+  } catch (err) {
+    console.error("[GA4] daily snapshot fetch failed:", err);
+    return emptyDailyGA4();
+  }
+}
