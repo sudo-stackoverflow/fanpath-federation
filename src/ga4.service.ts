@@ -177,6 +177,26 @@ export interface CustomEvents {
   // PWA / Push
   app_install_tapped: number;
   push_notification_enabled: number;
+
+  // Community (mobile)
+  post_created: number;
+
+  // Marketplace confirmations (mobile)
+  ticket_confirmed:  number;
+  housing_confirmed: number;
+
+  // Match check-in (mobile)
+  match_checkin: number;
+
+  // Hotels (mobile)
+  hotel_list_viewed:        number;
+  hotel_search_started:     number;
+  hotel_opened:             number;
+  hotel_booking_started:    number;
+  hotel_booking_completed:  number;
+  hotel_gold_gate_shown:    number;
+  hotel_gold_upgrade_tapped: number;
+  hotel_gold_gate_dismissed: number;
 }
 
 export interface GA4Stats {
@@ -257,6 +277,16 @@ const EMPTY_EVENTS: CustomEvents = {
   listing_filter_applied: 0,
   // PWA
   app_install_tapped: 0, push_notification_enabled: 0,
+  // Community (mobile)
+  post_created: 0,
+  // Marketplace confirmations (mobile)
+  ticket_confirmed: 0, housing_confirmed: 0,
+  // Match check-in (mobile)
+  match_checkin: 0,
+  // Hotels (mobile)
+  hotel_list_viewed: 0, hotel_search_started: 0, hotel_opened: 0,
+  hotel_booking_started: 0, hotel_booking_completed: 0,
+  hotel_gold_gate_shown: 0, hotel_gold_upgrade_tapped: 0, hotel_gold_gate_dismissed: 0,
 };
 
 const emptyStats = (): GA4Stats => ({
@@ -474,6 +504,22 @@ export async function getGA4Stats(win: Window = "7d"): Promise<GA4Stats> {
       // PWA
       app_install_tapped:      ev("app_install_tapped"),
       push_notification_enabled: ev("push_notification_enabled"),
+      // Community (mobile)
+      post_created:            ev("post_created"),
+      // Marketplace confirmations (mobile)
+      ticket_confirmed:        ev("ticket_confirmed"),
+      housing_confirmed:       ev("housing_confirmed"),
+      // Match check-in (mobile)
+      match_checkin:           ev("match_checkin"),
+      // Hotels (mobile)
+      hotel_list_viewed:         ev("hotel_list_viewed"),
+      hotel_search_started:      ev("hotel_search_started"),
+      hotel_opened:              ev("hotel_opened"),
+      hotel_booking_started:     ev("hotel_booking_started"),
+      hotel_booking_completed:   ev("hotel_booking_completed"),
+      hotel_gold_gate_shown:     ev("hotel_gold_gate_shown"),
+      hotel_gold_upgrade_tapped: ev("hotel_gold_upgrade_tapped"),
+      hotel_gold_gate_dismissed: ev("hotel_gold_gate_dismissed"),
     };
 
     const stats: GA4Stats = {
@@ -552,24 +598,29 @@ export interface TrafficSource {
 }
 
 export interface DailySnapshotGA4 {
-  dau:                        { yesterday: number; day_before: number };
-  mau:                        number;
-  sessions:                   { yesterday: number; day_before: number };
-  page_views:                 { yesterday: number; day_before: number };
-  bounce_rate:                { yesterday_pct: number; day_before_pct: number };
+  dau:                          { yesterday: number; day_before: number };
+  mau:                          number;
+  sessions:                     { yesterday: number; day_before: number };
+  page_views:                   { yesterday: number; day_before: number };
+  bounce_rate:                  { yesterday_pct: number; day_before_pct: number };
   avg_session_duration_seconds: { yesterday: number; day_before: number };
-  traffic_sources_yesterday:  TrafficSource[];
+  traffic_sources_yesterday:    TrafficSource[];
+  // GA4-native retention & conversion
+  retention:                    { yesterday_pct: number; day_before_pct: number };
+  conversion_rate:              { yesterday_pct: number; day_before_pct: number };
 }
 
 function emptyDailyGA4(): DailySnapshotGA4 {
   return {
-    dau:                        { yesterday: 0, day_before: 0 },
-    mau:                        0,
-    sessions:                   { yesterday: 0, day_before: 0 },
-    page_views:                 { yesterday: 0, day_before: 0 },
-    bounce_rate:                { yesterday_pct: 0, day_before_pct: 0 },
+    dau:                          { yesterday: 0, day_before: 0 },
+    mau:                          0,
+    sessions:                     { yesterday: 0, day_before: 0 },
+    page_views:                   { yesterday: 0, day_before: 0 },
+    bounce_rate:                  { yesterday_pct: 0, day_before_pct: 0 },
     avg_session_duration_seconds: { yesterday: 0, day_before: 0 },
-    traffic_sources_yesterday:  [],
+    traffic_sources_yesterday:    [],
+    retention:                    { yesterday_pct: 0, day_before_pct: 0 },
+    conversion_rate:              { yesterday_pct: 0, day_before_pct: 0 },
   };
 }
 
@@ -599,16 +650,20 @@ export async function getDailySnapshotGA4(): Promise<DailySnapshotGA4> {
     };
 
     const [overview, sources, mau30] = await Promise.all([
-      // Overview: activeUsers, sessions, screenPageViews, bounceRate, avgSessionDuration
+      // Overview: activeUsers, sessions, screenPageViews, bounceRate, avgSessionDuration,
+      //           newUsers, returningUsers, sessionConversionRate
       client.runReport({
         property,
         ...twoDay,
         metrics: [
-          { name: "activeUsers"          },
-          { name: "sessions"             },
-          { name: "screenPageViews"      },
-          { name: "bounceRate"           },
-          { name: "averageSessionDuration" },
+          { name: "activeUsers"            },  // [0]
+          { name: "sessions"               },  // [1]
+          { name: "screenPageViews"        },  // [2]
+          { name: "bounceRate"             },  // [3]
+          { name: "averageSessionDuration" },  // [4]
+          { name: "newUsers"               },  // [5]
+          { name: "returningUsers"         },  // [6]
+          { name: "sessionConversionRate"  },  // [7]
         ],
       }),
       // Traffic sources — yesterday only
@@ -671,6 +726,21 @@ export async function getDailySnapshotGA4(): Promise<DailySnapshotGA4> {
         day_before: Math.round(n(row1[4]?.value)),
       },
       traffic_sources_yesterday: trafficSources,
+      // Retention: returningUsers / activeUsers — GA4 native
+      retention: {
+        yesterday_pct:  n(row0[0]?.value) > 0
+          ? parseFloat((n(row0[6]?.value) / n(row0[0]?.value) * 100).toFixed(1))
+          : 0,
+        day_before_pct: n(row1[0]?.value) > 0
+          ? parseFloat((n(row1[6]?.value) / n(row1[0]?.value) * 100).toFixed(1))
+          : 0,
+      },
+      // Conversion rate: GA4 sessionConversionRate (requires conversion events set in GA4)
+      // Falls back to purchase_completed / sessions if no conversions configured
+      conversion_rate: {
+        yesterday_pct:  parseFloat((n(row0[7]?.value) * 100).toFixed(2)),
+        day_before_pct: parseFloat((n(row1[7]?.value) * 100).toFixed(2)),
+      },
     };
 
     _dailySnapshotCache = { data, ts: Date.now() };

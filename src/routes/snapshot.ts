@@ -81,11 +81,17 @@ router.get("/api/daily-snapshot", requireKey, async (req, res) => {
       // Revenue (DB)
       revenue: db.revenue ?? { yesterday_usd: 0, day_before_usd: 0 },
 
-      // Conversion rate: Fanpath+ signups / total signups (DB)
-      conversion_rate: db.conversion_rate ?? { yesterday_pct: 0, day_before_pct: 0 },
+      // Conversion rate: GA4 sessionConversionRate (native, no config needed)
+      conversion_rate: {
+        yesterday_pct:  ga4.conversion_rate.yesterday_pct,
+        day_before_pct: ga4.conversion_rate.day_before_pct,
+      },
 
-      // Retention cohorts (DB)
-      retention: db.retention ?? { day_1_pct: 0, day_7_pct: 0, day_30_pct: 0 },
+      // Retention: returningUsers / activeUsers from GA4 (native)
+      retention: {
+        yesterday_pct:  ga4.retention.yesterday_pct,
+        day_before_pct: ga4.retention.day_before_pct,
+      },
 
       // Debug — remove once confirmed working
       _db_status: dbStatusCode,

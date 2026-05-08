@@ -996,6 +996,7 @@ router.get("/", requireKey, (req, res) => {
               evRow('Post Edited', ce.housing_post_edited),
               evRow('Post Deleted', ce.housing_post_deleted),
               evRow('Marked Booked', ce.housing_marked_booked),
+              evRow('Confirmed (mobile)', ce.housing_confirmed),
             ]) +
           '</div>' +
 
@@ -1009,6 +1010,7 @@ router.get("/", requireKey, (req, res) => {
               evRow('Post Edited', ce.ticket_post_edited),
               evRow('Post Deleted', ce.ticket_post_deleted),
               evRow('Transaction Submitted', ce.transaction_amount_submitted),
+              evRow('Confirmed (mobile)', ce.ticket_confirmed),
             ]) +
             evCard('My Path', [
               evRow('Started', ce.my_path_started),
@@ -1047,6 +1049,7 @@ router.get("/", requireKey, (req, res) => {
               evRow('Badge Thrown', ce.badge_thrown),
               evRow('Review Submitted', ce.review_submitted),
               evRow('Review Dismissed', ce.review_dismissed),
+              evRow('Match Check-in', ce.match_checkin),
             ]) +
             evCard('Squads', [
               evRow('Builder Opened', ce.squad_builder_opened),
@@ -1091,6 +1094,7 @@ router.get("/", requireKey, (req, res) => {
               evRow('Reposted', ce.intel_reposted),
             ]) +
             evCard('Community Feed', [
+              evRow('Post Created', ce.post_created),
               evRow('Post Reacted', ce.post_reacted),
               evRow('Post Commented', ce.post_commented),
               evRow('Comment Replied', ce.post_comment_replied),
@@ -1100,6 +1104,20 @@ router.get("/", requireKey, (req, res) => {
               evRow('Post Deleted', ce.post_deleted),
               evRow('Link Copied', ce.post_copied_link),
               evRow('Notif Toggled', ce.post_notification_toggled),
+            ]) +
+          '</div>' +
+
+          // Row 5: Hotels
+          '<div class="g3" style="margin-bottom:14px;">' +
+            evCard('Hotels', [
+              evRow('Search Started', ce.hotel_search_started),
+              evRow('List Viewed', ce.hotel_list_viewed),
+              evRow('Hotel Opened', ce.hotel_opened),
+              evRow('Booking Started', ce.hotel_booking_started),
+              evRow('Booking Completed', ce.hotel_booking_completed),
+              evRow('Gold Gate Shown', ce.hotel_gold_gate_shown),
+              evRow('Gold Upgrade Tapped', ce.hotel_gold_upgrade_tapped),
+              evRow('Gold Gate Dismissed', ce.hotel_gold_gate_dismissed),
             ]) +
           '</div>';
 
