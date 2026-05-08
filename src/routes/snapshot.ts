@@ -32,7 +32,7 @@ router.get("/api/daily-snapshot", requireKey, async (req, res) => {
     if (dbFetch) {
       dbStatusCode = dbFetch.status;
       if (dbFetch.ok) {
-        db = await dbFetch.json();
+        db = await dbFetch.json() as Record<string, any>;
       } else {
         const errText = await dbFetch.text().catch(() => "(unreadable)");
         console.error(`[daily-snapshot] fanpath returned ${dbFetch.status} — ${errText}`);

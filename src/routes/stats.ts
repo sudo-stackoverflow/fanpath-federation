@@ -22,7 +22,7 @@ router.get("/api/stats", requireKey, async (req, res) => {
 
     let db: Record<string, unknown> = {};
     if (dbRes.ok) {
-      db = await dbRes.json();
+      db = await dbRes.json() as Record<string, unknown>;
     } else {
       const errText = await dbRes.text().catch(() => "(unreadable)");
       console.error(`[stats] fanpath DB fetch failed — ${dbRes.status} ${dbRes.statusText} — ${errText}`);
