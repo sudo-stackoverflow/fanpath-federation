@@ -1,0 +1,27 @@
+name: Daily Metrics → Slack
+
+on:
+  schedule:
+    # 7:00 AM ET = 11:00 UTC during EDT (Mar–Nov), 12:00 UTC during EST (Nov–Mar)
+    # Using 11:00 UTC (during EDT it's 7am ET, during EST it's 6am ET — close enough)
+    - cron: '0 11 * * *'
+  workflow_dispatch:  # allow manual trigger from GitHub UI
+
+jobs:
+  post-metrics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Post daily metrics to Slack
+        env:
+          METRICS_API_URL: ${{ secrets.METRICS_API_URL }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: python scripts/post_daily_metrics.py
