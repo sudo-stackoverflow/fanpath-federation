@@ -92,7 +92,6 @@ router.get("/api/daily-snapshot", requireKey, async (req, res) => {
         yesterday_pct:  ga4.retention.yesterday_pct,
         day_before_pct: ga4.retention.day_before_pct,
         week_pct:       ga4.retention.week_pct,
-        days_15_pct:    ga4.retention.days_15_pct,
         month_pct:      ga4.retention.month_pct,
       },
 

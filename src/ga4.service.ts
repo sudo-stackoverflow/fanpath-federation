@@ -610,7 +610,6 @@ export interface DailySnapshotGA4 {
     yesterday_pct:  number;
     day_before_pct: number;
     week_pct:       number;
-    days_15_pct:    number;
     month_pct:      number;
   };
 }
@@ -624,7 +623,7 @@ function emptyDailyGA4(): DailySnapshotGA4 {
     bounce_rate:                  { yesterday_pct: 0, day_before_pct: 0 },
     avg_session_duration_seconds: { yesterday: 0, day_before: 0 },
     traffic_sources_yesterday:    [],
-    retention: { yesterday_pct: 0, day_before_pct: 0, week_pct: 0, days_15_pct: 0, month_pct: 0 },
+    retention: { yesterday_pct: 0, day_before_pct: 0, week_pct: 0, month_pct: 0 },
   };
 }
 
@@ -686,14 +685,13 @@ export async function getDailySnapshotGA4(): Promise<DailySnapshotGA4> {
         dateRanges: [{ startDate: "29daysAgo", endDate: "today" }],
         metrics:    [{ name: "activeUsers" }],
       }),
-      // Retention windows 1-4: yesterday, day_before, week, 15 days (max 4 ranges)
+      // Retention windows 1-3: yesterday, day_before, week
       client.runReport({
         property,
         dateRanges: [
-          { startDate: "yesterday",  endDate: "yesterday", name: "day1"   },
-          { startDate: "2daysAgo",   endDate: "2daysAgo",  name: "day2"   },
-          { startDate: "6daysAgo",   endDate: "today",     name: "week"   },
-          { startDate: "14daysAgo",  endDate: "today",     name: "days15" },
+          { startDate: "yesterday",  endDate: "yesterday", name: "day1"  },
+          { startDate: "2daysAgo",   endDate: "2daysAgo",  name: "day2"  },
+          { startDate: "6daysAgo",   endDate: "today",     name: "week"  },
         ],
         metrics: [
           { name: "activeUsers"    },
@@ -761,13 +759,12 @@ export async function getDailySnapshotGA4(): Promise<DailySnapshotGA4> {
           const returning = n(row?.metricValues?.[1]?.value);
           return active > 0 ? parseFloat((returning / active * 100).toFixed(1)) : 0;
         }
-        // retPart1 rows: [yesterday, day_before, week, days_15]
+        // retPart1 rows: [yesterday, day_before, week]
         // retPart2 rows: [month]
         return {
           yesterday_pct:  retPctFromRow(retPart1[0]?.rows?.[0]),
           day_before_pct: retPctFromRow(retPart1[0]?.rows?.[1]),
           week_pct:       retPctFromRow(retPart1[0]?.rows?.[2]),
-          days_15_pct:    retPctFromRow(retPart1[0]?.rows?.[3]),
           month_pct:      retPctFromRow(retPart2[0]?.rows?.[0]),
         };
       })(),
