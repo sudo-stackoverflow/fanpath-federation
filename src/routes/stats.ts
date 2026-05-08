@@ -16,7 +16,13 @@ router.get("/api/stats", requireKey, async (req, res) => {
     const nationParam = nation ? `&nation=${encodeURIComponent(nation)}` : "";
     const dbUrl = `${FANPATH_API_URL}/api/federation/stats?key=${encodeURIComponent(FEDERATION_KEY)}&window=${window}${nationParam}`;
     const [dbRes, ga4] = await Promise.all([
-      fetch(dbUrl),
+      fetch(dbUrl, {
+        headers: {
+          "User-Agent":        "FanpathFederation/1.0",
+          "x-federation-key": FEDERATION_KEY,
+          "Accept":            "application/json",
+        },
+      }),
       getGA4Stats(window as "24h" | "7d" | "30d" | "all"),
     ]);
 

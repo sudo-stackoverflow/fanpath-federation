@@ -24,7 +24,13 @@ router.get("/api/daily-snapshot", requireKey, async (req, res) => {
     const dbUrl = `${FANPATH_API_URL}/api/snapshot/daily?key=${encodeURIComponent(FEDERATION_KEY)}`;
     const [ga4, dbFetch] = await Promise.all([
       getDailySnapshotGA4(),
-      fetch(dbUrl).catch((e: any) => { console.error("[daily-snapshot] fetch threw:", e.message); return null; }),
+      fetch(dbUrl, {
+        headers: {
+          "User-Agent":        "FanpathFederation/1.0",
+          "x-federation-key": FEDERATION_KEY,
+          "Accept":            "application/json",
+        },
+      }).catch((e: any) => { console.error("[daily-snapshot] fetch threw:", e.message); return null; }),
     ]);
 
     let db: Record<string, any> = {};
