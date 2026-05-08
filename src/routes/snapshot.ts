@@ -93,7 +93,6 @@ router.get("/api/daily-snapshot", requireKey, async (req, res) => {
       // Debug — remove once confirmed working
       _db_status: dbStatusCode,
       _db_url: dbUrl.replace(FEDERATION_KEY, "***"),
-      _ga4_debug: ga4._ga4_debug,
     });
   } catch (err: any) {
     console.error("[daily-snapshot]", err);

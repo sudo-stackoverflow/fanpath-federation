@@ -612,15 +612,6 @@ export interface DailySnapshotGA4 {
     week:       { pct: number; returning: number; active: number };
     month:      { pct: number; returning: number; active: number };
   };
-  // Debug — shows what GA4 actually returned (remove once confirmed working)
-  _ga4_debug?: {
-    property_id:    string;
-    client_ok:      boolean;
-    error?:         string;
-    mau_raw:        number;
-    dau_yest_raw:   number;
-    sess_yest_raw:  number;
-  };
 }
 
 function emptyDailyGA4(): DailySnapshotGA4 {
@@ -655,7 +646,7 @@ export async function getDailySnapshotGA4(): Promise<DailySnapshotGA4> {
   const client = getClient();
   if (!client) {
     console.error("[GA4] daily snapshot: client is null — check GA4_PROPERTY_ID / GA4_CLIENT_EMAIL / GA4_PRIVATE_KEY env vars");
-    return { ...emptyDailyGA4(), _ga4_debug: { property_id: PROPERTY_ID, client_ok: false, error: "client_null", mau_raw: 0, dau_yest_raw: 0, sess_yest_raw: 0 } };
+    return emptyDailyGA4();
   }
 
   try {
@@ -721,14 +712,10 @@ export async function getDailySnapshotGA4(): Promise<DailySnapshotGA4> {
       return { pct, returning, active: Math.round(active) };
     }
 
-    const mauRaw   = n(mau30[0]?.rows?.[0]?.metricValues?.[0]?.value);
-    const dauYest  = n(row0[0]?.value);
-    const sessYest = n(row0[1]?.value);
-
     const data: DailySnapshotGA4 = {
-      dau:         { yesterday: dauYest,           day_before: n(row1[0]?.value) },
-      mau:         mauRaw,
-      sessions:    { yesterday: sessYest,           day_before: n(row1[1]?.value) },
+      dau:         { yesterday: n(row0[0]?.value),  day_before: n(row1[0]?.value) },
+      mau:         n(mau30[0]?.rows?.[0]?.metricValues?.[0]?.value),
+      sessions:    { yesterday: n(row0[1]?.value),  day_before: n(row1[1]?.value) },
       page_views:  { yesterday: n(row0[2]?.value),  day_before: n(row1[2]?.value) },
       bounce_rate: {
         yesterday_pct:  parseFloat((n(row0[3]?.value) * 100).toFixed(2)),
@@ -745,29 +732,12 @@ export async function getDailySnapshotGA4(): Promise<DailySnapshotGA4> {
         week:       retData(retWeek),
         month:      retData(retMonth),
       },
-      _ga4_debug: {
-        property_id:   PROPERTY_ID,
-        client_ok:     true,
-        mau_raw:       mauRaw,
-        dau_yest_raw:  dauYest,
-        sess_yest_raw: sessYest,
-      },
     };
 
     _dailySnapshotCache = { data, ts: Date.now() };
     return data;
   } catch (err: any) {
     console.error("[GA4] daily snapshot fetch failed:", err);
-    return {
-      ...emptyDailyGA4(),
-      _ga4_debug: {
-        property_id:   PROPERTY_ID,
-        client_ok:     true,
-        error:         String(err?.message ?? err),
-        mau_raw:       0,
-        dau_yest_raw:  0,
-        sess_yest_raw: 0,
-      },
-    };
+    return emptyDailyGA4();
   }
 }
