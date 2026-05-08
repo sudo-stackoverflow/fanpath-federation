@@ -84,9 +84,6 @@ router.get("/api/daily-snapshot", requireKey, async (req, res) => {
       // Traffic sources breakdown for yesterday (GA4)
       traffic_sources_yesterday: ga4.traffic_sources_yesterday,
 
-      // Revenue (DB)
-      revenue: db.revenue ?? { yesterday_usd: 0, day_before_usd: 0 },
-
       // Retention: returningUsers / activeUsers from GA4 (default metric, no config needed)
       retention: ga4.retention,
 
