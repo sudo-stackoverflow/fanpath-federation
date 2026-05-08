@@ -605,9 +605,14 @@ export interface DailySnapshotGA4 {
   bounce_rate:                  { yesterday_pct: number; day_before_pct: number };
   avg_session_duration_seconds: { yesterday: number; day_before: number };
   traffic_sources_yesterday:    TrafficSource[];
-  // GA4-native retention & conversion
-  retention:                    { yesterday_pct: number; day_before_pct: number };
-  conversion_rate:              { yesterday_pct: number; day_before_pct: number };
+  // GA4-native retention (returningUsers / activeUsers) across windows
+  retention: {
+    yesterday_pct:  number;
+    day_before_pct: number;
+    week_pct:       number;
+    days_15_pct:    number;
+    month_pct:      number;
+  };
 }
 
 function emptyDailyGA4(): DailySnapshotGA4 {
@@ -619,8 +624,7 @@ function emptyDailyGA4(): DailySnapshotGA4 {
     bounce_rate:                  { yesterday_pct: 0, day_before_pct: 0 },
     avg_session_duration_seconds: { yesterday: 0, day_before: 0 },
     traffic_sources_yesterday:    [],
-    retention:                    { yesterday_pct: 0, day_before_pct: 0 },
-    conversion_rate:              { yesterday_pct: 0, day_before_pct: 0 },
+    retention: { yesterday_pct: 0, day_before_pct: 0, week_pct: 0, days_15_pct: 0, month_pct: 0 },
   };
 }
 
@@ -649,9 +653,11 @@ export async function getDailySnapshotGA4(): Promise<DailySnapshotGA4> {
       ],
     };
 
-    const [overview, sources, mau30] = await Promise.all([
+    // GA4 allows a max of 4 dateRanges per request.
+    // Retention needs 5 windows, so we split into two calls (4 + 1).
+    const [overview, sources, mau30, retPart1, retPart2] = await Promise.all([
       // Overview: activeUsers, sessions, screenPageViews, bounceRate, avgSessionDuration,
-      //           newUsers, returningUsers, sessionConversionRate
+      //           newUsers, returningUsers
       client.runReport({
         property,
         ...twoDay,
@@ -663,7 +669,6 @@ export async function getDailySnapshotGA4(): Promise<DailySnapshotGA4> {
           { name: "averageSessionDuration" },  // [4]
           { name: "newUsers"               },  // [5]
           { name: "returningUsers"         },  // [6]
-          { name: "sessionConversionRate"  },  // [7]
         ],
       }),
       // Traffic sources — yesterday only
@@ -680,6 +685,29 @@ export async function getDailySnapshotGA4(): Promise<DailySnapshotGA4> {
         property,
         dateRanges: [{ startDate: "29daysAgo", endDate: "today" }],
         metrics:    [{ name: "activeUsers" }],
+      }),
+      // Retention windows 1-4: yesterday, day_before, week, 15 days (max 4 ranges)
+      client.runReport({
+        property,
+        dateRanges: [
+          { startDate: "yesterday",  endDate: "yesterday", name: "day1"   },
+          { startDate: "2daysAgo",   endDate: "2daysAgo",  name: "day2"   },
+          { startDate: "6daysAgo",   endDate: "today",     name: "week"   },
+          { startDate: "14daysAgo",  endDate: "today",     name: "days15" },
+        ],
+        metrics: [
+          { name: "activeUsers"    },
+          { name: "returningUsers" },
+        ],
+      }),
+      // Retention window 5: month (separate call — GA4 cap of 4 ranges)
+      client.runReport({
+        property,
+        dateRanges: [{ startDate: "29daysAgo", endDate: "today" }],
+        metrics: [
+          { name: "activeUsers"    },
+          { name: "returningUsers" },
+        ],
       }),
     ]);
 
@@ -726,21 +754,23 @@ export async function getDailySnapshotGA4(): Promise<DailySnapshotGA4> {
         day_before: Math.round(n(row1[4]?.value)),
       },
       traffic_sources_yesterday: trafficSources,
-      // Retention: returningUsers / activeUsers — GA4 native
-      retention: {
-        yesterday_pct:  n(row0[0]?.value) > 0
-          ? parseFloat((n(row0[6]?.value) / n(row0[0]?.value) * 100).toFixed(1))
-          : 0,
-        day_before_pct: n(row1[0]?.value) > 0
-          ? parseFloat((n(row1[6]?.value) / n(row1[0]?.value) * 100).toFixed(1))
-          : 0,
-      },
-      // Conversion rate: GA4 sessionConversionRate (requires conversion events set in GA4)
-      // Falls back to purchase_completed / sessions if no conversions configured
-      conversion_rate: {
-        yesterday_pct:  parseFloat((n(row0[7]?.value) * 100).toFixed(2)),
-        day_before_pct: parseFloat((n(row1[7]?.value) * 100).toFixed(2)),
-      },
+      // Retention: returningUsers / activeUsers per window — GA4 default metrics, no setup needed
+      retention: (() => {
+        function retPctFromRow(row: any): number {
+          const active    = n(row?.metricValues?.[0]?.value);
+          const returning = n(row?.metricValues?.[1]?.value);
+          return active > 0 ? parseFloat((returning / active * 100).toFixed(1)) : 0;
+        }
+        // retPart1 rows: [yesterday, day_before, week, days_15]
+        // retPart2 rows: [month]
+        return {
+          yesterday_pct:  retPctFromRow(retPart1[0]?.rows?.[0]),
+          day_before_pct: retPctFromRow(retPart1[0]?.rows?.[1]),
+          week_pct:       retPctFromRow(retPart1[0]?.rows?.[2]),
+          days_15_pct:    retPctFromRow(retPart1[0]?.rows?.[3]),
+          month_pct:      retPctFromRow(retPart2[0]?.rows?.[0]),
+        };
+      })(),
     };
 
     _dailySnapshotCache = { data, ts: Date.now() };

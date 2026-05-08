@@ -87,16 +87,13 @@ router.get("/api/daily-snapshot", requireKey, async (req, res) => {
       // Revenue (DB)
       revenue: db.revenue ?? { yesterday_usd: 0, day_before_usd: 0 },
 
-      // Conversion rate: GA4 sessionConversionRate (native, no config needed)
-      conversion_rate: {
-        yesterday_pct:  ga4.conversion_rate.yesterday_pct,
-        day_before_pct: ga4.conversion_rate.day_before_pct,
-      },
-
-      // Retention: returningUsers / activeUsers from GA4 (native)
+      // Retention: returningUsers / activeUsers from GA4 (default metric, no config needed)
       retention: {
         yesterday_pct:  ga4.retention.yesterday_pct,
         day_before_pct: ga4.retention.day_before_pct,
+        week_pct:       ga4.retention.week_pct,
+        days_15_pct:    ga4.retention.days_15_pct,
+        month_pct:      ga4.retention.month_pct,
       },
 
       // Debug — remove once confirmed working
