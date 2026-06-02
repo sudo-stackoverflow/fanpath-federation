@@ -1,5 +1,4 @@
 import { Router } from "express";
-import { requireKey } from "../middleware/auth";
 import { getGA4Stats, type GA4Stats } from "../ga4.service";
 
 const router = Router();
@@ -9,7 +8,7 @@ const FANPATH_API_URL =
 const FEDERATION_KEY = process.env.FEDERATION_KEY ?? "";
 
 // ── /api/stats — combined Fanpath DB + GA4 ───────────────────────────────────
-router.get("/api/stats", requireKey, async (req, res) => {
+router.get("/api/stats", async (req, res) => {
   try {
     const window = (req.query.window as string) || "7d";
     const nation  = (req.query.nation  as string) || "";

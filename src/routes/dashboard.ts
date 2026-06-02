@@ -1,14 +1,13 @@
 import { Router } from "express";
 import fs from "fs";
 import path from "path";
-import { requireKey } from "../middleware/auth";
 
 const router = Router();
 
 const HTML_PATH = path.resolve(__dirname, "../../static/federation.html");
 
 // ── / — serve dashboard with full interactive script injected ─────────────────
-router.get("/", requireKey, (req, res) => {
+router.get("/", (req, res) => {
   if (!fs.existsSync(HTML_PATH)) {
     return res
       .status(404)

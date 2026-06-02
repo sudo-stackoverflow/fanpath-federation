@@ -10,7 +10,6 @@
  */
 
 import { Router } from "express";
-import { requireKey } from "../middleware/auth";
 import { getDailySnapshotGA4 } from "../ga4.service";
 
 const router = Router();
@@ -19,7 +18,7 @@ const FANPATH_API_URL =
   process.env.FANPATH_API_URL ?? "https://www.usefanpath.com";
 const FEDERATION_KEY = process.env.FEDERATION_KEY ?? "";
 
-router.get("/api/daily-snapshot", requireKey, async (req, res) => {
+router.get("/api/daily-snapshot", async (req, res) => {
   try {
     const dbUrl = `${FANPATH_API_URL}/api/snapshot/daily?key=${encodeURIComponent(FEDERATION_KEY)}`;
     const [ga4, dbFetch] = await Promise.all([
