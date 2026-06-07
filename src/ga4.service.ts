@@ -597,6 +597,22 @@ export interface TrafficSource {
   pct:      number;
 }
 
+export interface PlatformData {
+  dau:                          { yesterday: number; day_before: number };
+  mau:                          number;
+  sessions:                     { yesterday: number; day_before: number };
+  screen_views:                 { yesterday: number; day_before: number };
+  bounce_rate:                  { yesterday_pct: number; day_before_pct: number };
+  engagement_rate:              { yesterday_pct: number; day_before_pct: number };
+  avg_session_duration_seconds: { yesterday: number; day_before: number };
+  retention: {
+    yesterday: { pct: number; returning: number; active: number };
+    week:      { pct: number; returning: number; active: number };
+    month:     { pct: number; returning: number; active: number };
+  };
+  traffic_sources: TrafficSource[];
+}
+
 export interface DailySnapshotGA4 {
   dau:                          { yesterday: number; day_before: number };
   mau:                          number;
@@ -605,6 +621,7 @@ export interface DailySnapshotGA4 {
   bounce_rate:                  { yesterday_pct: number; day_before_pct: number };
   avg_session_duration_seconds: { yesterday: number; day_before: number };
   traffic_sources_yesterday:    TrafficSource[];
+  platforms:                    Record<string, PlatformData>;
   // GA4-native retention (returningUsers / activeUsers) across windows
   retention: {
     yesterday:  { pct: number; returning: number; active: number };
@@ -623,6 +640,7 @@ function emptyDailyGA4(): DailySnapshotGA4 {
     bounce_rate:                  { yesterday_pct: 0, day_before_pct: 0 },
     avg_session_duration_seconds: { yesterday: 0, day_before: 0 },
     traffic_sources_yesterday:    [],
+    platforms:                    {},
     retention: {
       yesterday:  { pct: 0, returning: 0, active: 0 },
       day_before: { pct: 0, returning: 0, active: 0 },
@@ -669,7 +687,18 @@ export async function getDailySnapshotGA4(): Promise<DailySnapshotGA4> {
       }
     };
 
-    const [yest, dayBefore, sources, mau30, retWeek, retMonth] = await Promise.all([
+    const PLATFORM_METRICS = [
+      { name: "activeUsers" },
+      { name: "newUsers" },
+      { name: "sessions" },
+      { name: "screenPageViews" },
+      { name: "bounceRate" },
+      { name: "engagementRate" },
+      { name: "averageSessionDuration" },
+    ];
+
+    const [yest, dayBefore, sources, mau30, retWeek, retMonth,
+           platYest, platDayBefore, platMau, platRetWeek, platRetMonth, platSources] = await Promise.all([
       safe("yest",      { property, dateRanges: [{ startDate: "yesterday", endDate: "yesterday" }], metrics: METRICS_OVERVIEW }),
       safe("dayBefore", { property, dateRanges: [{ startDate: "2daysAgo",  endDate: "2daysAgo"  }], metrics: METRICS_OVERVIEW }),
       safe("sources",   {
@@ -683,6 +712,20 @@ export async function getDailySnapshotGA4(): Promise<DailySnapshotGA4> {
       safe("mau30",    { property, dateRanges: [{ startDate: "29daysAgo", endDate: "today" }], metrics: [{ name: "activeUsers" }] }),
       safe("retWeek",  { property, dateRanges: [{ startDate: "6daysAgo",  endDate: "today" }], metrics: [{ name: "activeUsers" }, { name: "newUsers" }] }),
       safe("retMonth", { property, dateRanges: [{ startDate: "29daysAgo", endDate: "today" }], metrics: [{ name: "activeUsers" }, { name: "newUsers" }] }),
+      // Per-platform queries
+      safe("platYest",      { property, dateRanges: [{ startDate: "yesterday", endDate: "yesterday" }], dimensions: [{ name: "platform" }], metrics: PLATFORM_METRICS }),
+      safe("platDayBefore", { property, dateRanges: [{ startDate: "2daysAgo",  endDate: "2daysAgo"  }], dimensions: [{ name: "platform" }], metrics: PLATFORM_METRICS }),
+      safe("platMau",       { property, dateRanges: [{ startDate: "29daysAgo", endDate: "today" }],     dimensions: [{ name: "platform" }], metrics: [{ name: "activeUsers" }] }),
+      safe("platRetWeek",   { property, dateRanges: [{ startDate: "6daysAgo",  endDate: "today" }],     dimensions: [{ name: "platform" }], metrics: [{ name: "activeUsers" }, { name: "newUsers" }] }),
+      safe("platRetMonth",  { property, dateRanges: [{ startDate: "29daysAgo", endDate: "today" }],     dimensions: [{ name: "platform" }], metrics: [{ name: "activeUsers" }, { name: "newUsers" }] }),
+      safe("platSources",   {
+        property,
+        dateRanges: [{ startDate: "yesterday", endDate: "yesterday" }],
+        dimensions: [{ name: "platform" }, { name: "sessionDefaultChannelGrouping" }],
+        metrics:    [{ name: "sessions" }],
+        orderBys:   [{ metric: { metricName: "sessions" }, desc: true }],
+        limit: 50,
+      }),
     ]);
 
     const mv0 = (res: any) => res[0]?.rows?.[0]?.metricValues ?? [];
@@ -712,6 +755,88 @@ export async function getDailySnapshotGA4(): Promise<DailySnapshotGA4> {
       return { pct, returning, active: Math.round(active) };
     }
 
+    // Build per-platform lookup maps
+    const platYestMap: Record<string, any[]> = {};
+    for (const row of platYest[0]?.rows ?? []) {
+      const p = row.dimensionValues?.[0]?.value ?? "unknown";
+      platYestMap[p] = row.metricValues ?? [];
+    }
+    const platDayBeforeMap: Record<string, any[]> = {};
+    for (const row of platDayBefore[0]?.rows ?? []) {
+      const p = row.dimensionValues?.[0]?.value ?? "unknown";
+      platDayBeforeMap[p] = row.metricValues ?? [];
+    }
+    const platMauMap: Record<string, number> = {};
+    for (const row of platMau[0]?.rows ?? []) {
+      const p = row.dimensionValues?.[0]?.value ?? "unknown";
+      platMauMap[p] = Math.round(n(row.metricValues?.[0]?.value));
+    }
+    const platRetWeekMap: Record<string, any[]> = {};
+    for (const row of platRetWeek[0]?.rows ?? []) {
+      const p = row.dimensionValues?.[0]?.value ?? "unknown";
+      platRetWeekMap[p] = row.metricValues ?? [];
+    }
+    const platRetMonthMap: Record<string, any[]> = {};
+    for (const row of platRetMonth[0]?.rows ?? []) {
+      const p = row.dimensionValues?.[0]?.value ?? "unknown";
+      platRetMonthMap[p] = row.metricValues ?? [];
+    }
+    const platSourcesMap: Record<string, { source: string; sessions: number }[]> = {};
+    for (const row of platSources[0]?.rows ?? []) {
+      const p    = row.dimensionValues?.[0]?.value ?? "unknown";
+      const src  = row.dimensionValues?.[1]?.value ?? "unknown";
+      const sess = Math.round(n(row.metricValues?.[0]?.value));
+      if (!platSourcesMap[p]) platSourcesMap[p] = [];
+      platSourcesMap[p].push({ source: src, sessions: sess });
+    }
+
+    const allPlatforms = new Set([
+      ...Object.keys(platYestMap),
+      ...Object.keys(platDayBeforeMap),
+    ]);
+
+    const platforms: Record<string, PlatformData> = {};
+    for (const p of allPlatforms) {
+      const y  = platYestMap[p]      ?? [];
+      const db = platDayBeforeMap[p] ?? [];
+      const rw = platRetWeekMap[p]   ?? [];
+      const rm = platRetMonthMap[p]  ?? [];
+
+      const aktYest = n(y[0]?.value); const newYest = n(y[1]?.value);
+      const aktDb   = n(db[0]?.value); const newDb   = n(db[1]?.value);
+      const aktRw   = n(rw[0]?.value); const newRw   = n(rw[1]?.value);
+      const aktRm   = n(rm[0]?.value); const newRm   = n(rm[1]?.value);
+
+      function ret(active: number, newU: number) {
+        const returning = Math.max(0, Math.round(active - newU));
+        return { pct: active > 0 ? parseFloat((returning / active * 100).toFixed(1)) : 0, returning, active: Math.round(active) };
+      }
+
+      const srcList = platSourcesMap[p] ?? [];
+      const totalSrc = srcList.reduce((s, r) => s + r.sessions, 0);
+      const traffic: TrafficSource[] = srcList.map(r => ({
+        source: r.source,
+        sessions: r.sessions,
+        pct: totalSrc > 0 ? parseFloat(((r.sessions / totalSrc) * 100).toFixed(1)) : 0,
+      }));
+
+      platforms[p] = {
+        dau:                          { yesterday: Math.round(aktYest), day_before: Math.round(aktDb) },
+        mau:                          platMauMap[p] ?? 0,
+        sessions:                     { yesterday: Math.round(n(y[2]?.value)), day_before: Math.round(n(db[2]?.value)) },
+        screen_views:                 { yesterday: Math.round(n(y[3]?.value)), day_before: Math.round(n(db[3]?.value)) },
+        bounce_rate:                  { yesterday_pct: parseFloat((n(y[4]?.value) * 100).toFixed(2)), day_before_pct: parseFloat((n(db[4]?.value) * 100).toFixed(2)) },
+        engagement_rate:              { yesterday_pct: parseFloat((n(y[5]?.value) * 100).toFixed(2)), day_before_pct: parseFloat((n(db[5]?.value) * 100).toFixed(2)) },
+        avg_session_duration_seconds: { yesterday: Math.round(n(y[6]?.value)), day_before: Math.round(n(db[6]?.value)) },
+        retention: {
+          yesterday: ret(aktYest, newYest),
+          week:      ret(aktRw,   newRw),
+          month:     ret(aktRm,   newRm),
+        },
+        traffic_sources: traffic,
+      };
+    }
+
     const data: DailySnapshotGA4 = {
       dau:         { yesterday: n(row0[0]?.value),  day_before: n(row1[0]?.value) },
       mau:         n(mau30[0]?.rows?.[0]?.metricValues?.[0]?.value),
@@ -726,6 +851,7 @@ export async function getDailySnapshotGA4(): Promise<DailySnapshotGA4> {
         day_before: Math.round(n(row1[4]?.value)),
       },
       traffic_sources_yesterday: trafficSources,
+      platforms,
       retention: {
         yesterday:  retData(yest),
         day_before: retData(dayBefore),
