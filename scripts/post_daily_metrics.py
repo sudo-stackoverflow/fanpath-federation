@@ -105,7 +105,8 @@ def main():
         sys.exit(1)
 
     try:
-        with urllib.request.urlopen(api_url, timeout=15) as resp:
+        req = urllib.request.Request(api_url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=15) as resp:
             data = json.loads(resp.read().decode("utf-8"))
     except Exception as e:
         fail_text = f"⚠️ Daily metrics fetch failed: `{e}`"
