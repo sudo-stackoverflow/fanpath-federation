@@ -614,6 +614,16 @@ export interface PlatformData {
 }
 
 export interface DailySnapshotGA4 {
+  // Cumulative real-user totals since launch → yesterday (latest complete day)
+  cumulative: {
+    users:               number;
+    sessions:            number;
+    page_views:          number;
+    bounce_rate_pct:     number;
+    avg_session_seconds: number;
+    since:               string;
+    through:             string;
+  };
   dau:                          { yesterday: number; day_before: number };
   mau:                          number;
   sessions:                     { yesterday: number; day_before: number };
@@ -633,6 +643,10 @@ export interface DailySnapshotGA4 {
 
 function emptyDailyGA4(): DailySnapshotGA4 {
   return {
+    cumulative: {
+      users: 0, sessions: 0, page_views: 0, bounce_rate_pct: 0,
+      avg_session_seconds: 0, since: "", through: "",
+    },
     dau:                          { yesterday: 0, day_before: 0 },
     mau:                          0,
     sessions:                     { yesterday: 0, day_before: 0 },
@@ -677,10 +691,17 @@ export async function getDailySnapshotGA4(): Promise<DailySnapshotGA4> {
       { name: "averageSessionDuration" },
     ];
 
+    // Real users only — every snapshot query is filtered to sessions where
+    // setUserId() fired (signedInWithUserId = "yes"), so the digest reflects
+    // actual logged-in humans, not the anonymous/bot traffic that dominates
+    // unfiltered GA. Injected centrally so all 12 reports below inherit it.
+    const REAL_USER_FILTER = {
+      filter: { fieldName: "signedInWithUserId", stringFilter: { value: "yes" } },
+    };
     // Use separate single-dateRange calls — avoids any ambiguity in multi-range row ordering
     const safe = async (label: string, req: any) => {
       try {
-        return await client.runReport(req);
+        return await client.runReport({ dimensionFilter: REAL_USER_FILTER, ...req });
       } catch (e: any) {
         console.error(`[GA4] daily snapshot — "${label}" failed:`, e?.message ?? e);
         return [{ rows: [] }];
@@ -697,35 +718,73 @@ export async function getDailySnapshotGA4(): Promise<DailySnapshotGA4> {
       { name: "averageSessionDuration" },
     ];
 
+    // App launch — start of the cumulative "All platforms" window.
+    const LAUNCH_DATE = "2026-04-13";
+
+    // ── Pick the latest *settled* day ────────────────────────────────────────
+    // GA's most-recent day is still collecting, so reporting it shows false
+    // drops every morning. Find the latest date with data (all traffic), then
+    // report the day BEFORE it (guaranteed complete) vs the day before that.
+    // e.g. latest-with-data = Jun 14 → report Jun 13 vs Jun 12.
+    const ymd = (d: Date) =>
+      `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+    const shift = (base: Date, days: number) => { const d = new Date(base); d.setUTCDate(d.getUTCDate() + days); return d; };
+
+    let latestWithData: Date | null = null;
+    try {
+      const fresh = await client.runReport({
+        property,
+        dateRanges: [{ startDate: "5daysAgo", endDate: "today" }],
+        dimensions: [{ name: "date" }],
+        metrics: [{ name: "eventCount" }],
+      });
+      const dates = (fresh[0]?.rows ?? [])
+        .map((r: any) => r.dimensionValues?.[0]?.value as string)
+        .filter((v: string) => v && /^\d{8}$/.test(v))
+        .sort();
+      const last = dates[dates.length - 1];
+      if (last) latestWithData = new Date(Date.UTC(+last.slice(0, 4), +last.slice(4, 6) - 1, +last.slice(6, 8)));
+    } catch (e: any) {
+      console.error("[GA4] freshness probe failed:", e?.message ?? e);
+    }
+    // Fallback: if the probe failed, assume today is the still-collecting edge.
+    const latest = latestWithData ?? new Date();
+    const REPORT      = ymd(shift(latest, -1));   // latest settled day (digest "yesterday")
+    const COMPARE     = ymd(shift(latest, -2));   // the day before that (digest "day_before")
+    const MONTH_START = ymd(shift(latest, -30));  // 30-day window ending at REPORT
+    const WEEK_START  = ymd(shift(latest, -7));   // 7-day window ending at REPORT
+
     const [yest, dayBefore, sources, mau30, retWeek, retMonth,
-           platYest, platDayBefore, platMau, platRetWeek, platRetMonth, platSources] = await Promise.all([
-      safe("yest",      { property, dateRanges: [{ startDate: "yesterday", endDate: "yesterday" }], metrics: METRICS_OVERVIEW }),
-      safe("dayBefore", { property, dateRanges: [{ startDate: "2daysAgo",  endDate: "2daysAgo"  }], metrics: METRICS_OVERVIEW }),
+           platYest, platDayBefore, platMau, platRetWeek, platRetMonth, platSources, cumulativeRes] = await Promise.all([
+      safe("yest",      { property, dateRanges: [{ startDate: REPORT,  endDate: REPORT  }], metrics: METRICS_OVERVIEW }),
+      safe("dayBefore", { property, dateRanges: [{ startDate: COMPARE, endDate: COMPARE }], metrics: METRICS_OVERVIEW }),
       safe("sources",   {
         property,
-        dateRanges: [{ startDate: "yesterday", endDate: "yesterday" }],
+        dateRanges: [{ startDate: REPORT, endDate: REPORT }],
         dimensions: [{ name: "sessionDefaultChannelGrouping" }],
         metrics:    [{ name: "sessions" }],
         orderBys:   [{ metric: { metricName: "sessions" }, desc: true }],
         limit: 10,
       }),
-      safe("mau30",    { property, dateRanges: [{ startDate: "29daysAgo", endDate: "today" }], metrics: [{ name: "activeUsers" }] }),
-      safe("retWeek",  { property, dateRanges: [{ startDate: "6daysAgo",  endDate: "today" }], metrics: [{ name: "activeUsers" }, { name: "newUsers" }] }),
-      safe("retMonth", { property, dateRanges: [{ startDate: "29daysAgo", endDate: "today" }], metrics: [{ name: "activeUsers" }, { name: "newUsers" }] }),
+      safe("mau30",    { property, dateRanges: [{ startDate: MONTH_START, endDate: REPORT }], metrics: [{ name: "activeUsers" }] }),
+      safe("retWeek",  { property, dateRanges: [{ startDate: WEEK_START,  endDate: REPORT }], metrics: [{ name: "activeUsers" }, { name: "newUsers" }] }),
+      safe("retMonth", { property, dateRanges: [{ startDate: MONTH_START, endDate: REPORT }], metrics: [{ name: "activeUsers" }, { name: "newUsers" }] }),
       // Per-platform queries
-      safe("platYest",      { property, dateRanges: [{ startDate: "yesterday", endDate: "yesterday" }], dimensions: [{ name: "platform" }], metrics: PLATFORM_METRICS }),
-      safe("platDayBefore", { property, dateRanges: [{ startDate: "2daysAgo",  endDate: "2daysAgo"  }], dimensions: [{ name: "platform" }], metrics: PLATFORM_METRICS }),
-      safe("platMau",       { property, dateRanges: [{ startDate: "29daysAgo", endDate: "today" }],     dimensions: [{ name: "platform" }], metrics: [{ name: "activeUsers" }] }),
-      safe("platRetWeek",   { property, dateRanges: [{ startDate: "6daysAgo",  endDate: "today" }],     dimensions: [{ name: "platform" }], metrics: [{ name: "activeUsers" }, { name: "newUsers" }] }),
-      safe("platRetMonth",  { property, dateRanges: [{ startDate: "29daysAgo", endDate: "today" }],     dimensions: [{ name: "platform" }], metrics: [{ name: "activeUsers" }, { name: "newUsers" }] }),
+      safe("platYest",      { property, dateRanges: [{ startDate: REPORT,  endDate: REPORT  }], dimensions: [{ name: "platform" }], metrics: PLATFORM_METRICS }),
+      safe("platDayBefore", { property, dateRanges: [{ startDate: COMPARE, endDate: COMPARE }], dimensions: [{ name: "platform" }], metrics: PLATFORM_METRICS }),
+      safe("platMau",       { property, dateRanges: [{ startDate: MONTH_START, endDate: REPORT }], dimensions: [{ name: "platform" }], metrics: [{ name: "activeUsers" }] }),
+      safe("platRetWeek",   { property, dateRanges: [{ startDate: WEEK_START,  endDate: REPORT }], dimensions: [{ name: "platform" }], metrics: [{ name: "activeUsers" }, { name: "newUsers" }] }),
+      safe("platRetMonth",  { property, dateRanges: [{ startDate: MONTH_START, endDate: REPORT }], dimensions: [{ name: "platform" }], metrics: [{ name: "activeUsers" }, { name: "newUsers" }] }),
       safe("platSources",   {
         property,
-        dateRanges: [{ startDate: "yesterday", endDate: "yesterday" }],
+        dateRanges: [{ startDate: REPORT, endDate: REPORT }],
         dimensions: [{ name: "platform" }, { name: "sessionDefaultChannelGrouping" }],
         metrics:    [{ name: "sessions" }],
         orderBys:   [{ metric: { metricName: "sessions" }, desc: true }],
         limit: 50,
       }),
+      // Cumulative "All platforms" totals since launch → REPORT (latest settled day)
+      safe("cumulative",    { property, dateRanges: [{ startDate: LAUNCH_DATE, endDate: REPORT }], metrics: METRICS_OVERVIEW }),
     ]);
 
     const mv0 = (res: any) => res[0]?.rows?.[0]?.metricValues ?? [];
@@ -837,7 +896,18 @@ export async function getDailySnapshotGA4(): Promise<DailySnapshotGA4> {
       };
     }
 
+    const cRow = mv0(cumulativeRes);
+
     const data: DailySnapshotGA4 = {
+      cumulative: {
+        users:               Math.round(n(cRow[0]?.value)),
+        sessions:            Math.round(n(cRow[1]?.value)),
+        page_views:          Math.round(n(cRow[2]?.value)),
+        bounce_rate_pct:     parseFloat((n(cRow[3]?.value) * 100).toFixed(2)),
+        avg_session_seconds: Math.round(n(cRow[4]?.value)),
+        since:               LAUNCH_DATE,
+        through:             REPORT,
+      },
       dau:         { yesterday: n(row0[0]?.value),  day_before: n(row1[0]?.value) },
       mau:         n(mau30[0]?.rows?.[0]?.metricValues?.[0]?.value),
       sessions:    { yesterday: n(row0[1]?.value),  day_before: n(row1[1]?.value) },

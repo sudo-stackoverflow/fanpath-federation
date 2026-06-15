@@ -56,13 +56,17 @@ router.get("/api/daily-snapshot", async (req, res) => {
 
     res.json({
       as_of: now.toISOString(),
-      date:  db.date ?? `${yyyy}-${mm}-${dd}`,
+      // Digest date = latest settled GA day (the day the per-platform metrics describe)
+      date:  ga4.cumulative?.through || db.date || `${yyyy}-${mm}-${dd}`,
 
       // Users (DB)
       users: db.users ?? { yesterday: 0, day_before: 0 },
 
       // New signups (DB)
       new_signups: db.new_signups ?? { yesterday: 0, day_before: 0 },
+
+      // Cumulative "All platforms" totals since launch (GA4, real users)
+      cumulative: ga4.cumulative,
 
       // Daily / Monthly active users (GA4)
       dau: ga4.dau,

@@ -14,6 +14,7 @@ import json
 import os
 import sys
 import urllib.request
+from datetime import datetime, timedelta
 
 
 def arrow(curr, prev):
@@ -58,7 +59,7 @@ PLATFORM_EMOJI = {
 PLATFORM_ORDER = ["web", "Android", "iOS"]
 
 
-def format_platform(name, p):
+def format_platform(name, p, date_label=""):
     emoji = PLATFORM_EMOJI.get(name.lower(), "📱")
     dau   = p.get("dau", {})
     ses   = p.get("sessions", {})
@@ -75,7 +76,7 @@ def format_platform(name, p):
 
     is_web = name.lower() == "web"
 
-    lines = [f"*{emoji} {name}*"]
+    lines = [f"*{emoji} {name}*{date_label}"]
     lines.append(f"   DAU: {fmt(dau.get('yesterday'), dau.get('day_before'))}   MAU: {mau}")
     lines.append(f"   Sessions: {fmt(ses.get('yesterday'), ses.get('day_before'))}")
     lines.append(f"   {'Page' if is_web else 'Screen'} views: {fmt(sv.get('yesterday'), sv.get('day_before'))}")
@@ -123,11 +124,33 @@ def main():
     print("Posted to Slack successfully.")
 
 
+def format_overall(data):
+    """Cumulative real-user totals across all platforms, since launch → latest day."""
+    c = data.get("cumulative", {}) or {}
+    since   = c.get("since", "?")
+    through = c.get("through", "?")
+    br_pct  = c.get("bounce_rate_pct")
+
+    lines = [f"*👥 All platforms — since launch ({since} → {through})*"]
+    lines.append(f"   Real users: {c.get('users', 0)}")
+    lines.append(f"   Sessions: {c.get('sessions', 0)}")
+    lines.append(f"   Page views: {c.get('page_views', 0)}")
+    lines.append(f"   Bounce rate: {br_pct:.2f}%" if br_pct is not None else "   Bounce rate: n/a")
+    lines.append(f"   Avg session: {fmt_dur(c.get('avg_session_seconds'))}")
+    return "\n".join(lines)
+
+
 def format_message(data):
     date = data.get("date", "unknown")
-    u    = data.get("users", {})
-    s    = data.get("new_signups", {})
     platforms = data.get("platforms", {}) or {}
+
+    # Per-platform numbers compare the latest settled day (`date`) vs the day before.
+    try:
+        _d = datetime.strptime(date, "%Y-%m-%d").date()
+        prev = (_d - timedelta(days=1)).isoformat()
+    except Exception:
+        prev = "prev day"
+    plat_date_label = f"   _({date} vs {prev})_"
 
     divider = "\n─────────────────────────────\n"
 
@@ -139,16 +162,13 @@ def format_message(data):
     sorted_platforms = sorted(platforms.items(), key=lambda kv: plat_sort_key(kv[0]))
 
     platform_sections = divider.join(
-        format_platform(name, pdata)
+        format_platform(name, pdata, plat_date_label)
         for name, pdata in sorted_platforms
     )
 
     text = f"""*📊 Fanpath Daily Metrics · {date}*
 
-*👥 Users (DB)*
-   Total: {fmt(u.get('yesterday'), u.get('day_before'))}
-   New signups: {fmt(s.get('yesterday'), s.get('day_before'))}
-
+{format_overall(data)}
 {divider}{platform_sections}
 """
     return text
