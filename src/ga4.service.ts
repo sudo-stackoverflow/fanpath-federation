@@ -719,7 +719,7 @@ export async function getDailySnapshotGA4(): Promise<DailySnapshotGA4> {
     ];
 
     // App launch — start of the cumulative "All platforms" window.
-    const LAUNCH_DATE = "2026-03-14";
+    const LAUNCH_DATE = "2026-04-13";
 
     // ── Pick the latest *settled* day ────────────────────────────────────────
     // GA's most-recent day is still collecting, so reporting it shows false
